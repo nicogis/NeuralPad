@@ -31,15 +31,18 @@ public sealed class Connection : INotifyPropertyChanged
 
     public double Contribution { get; internal set; }
     public bool HasContribution { get; internal set; }
+    public double Gradient { get; internal set; }
+    public bool HasGradient { get; internal set; }
 
     internal void ResetState()
     {
         Contribution = 0;
         HasContribution = false;
+        Gradient = 0;
+        HasGradient = false;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
