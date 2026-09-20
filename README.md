@@ -18,6 +18,7 @@ POC di debugger visuale per reti neurali, ispirato alla filosofia di LINQPad.
 - inspector DevExpress del neurone/collegamento corrente
 - selezione diretta di neuroni e connessioni dal grafo
 - editing live di Weight e Bias con invalidazione della sessione corrente
+- Watch Window live con espressioni come `H1.Activation`, `O1.Z`, `H1.Bias`, `W(H1,O1)`
 - modifica live degli input X1/X2
 
 ## Progetti
@@ -42,7 +43,6 @@ Aprire `NeuralPad.slnx` con Visual Studio e avviare `NeuralPad.App`.
 
 ## Prossime milestone
 
-1. Watch window.
-2. Backpropagation e gradient debugger.
-3. Loss e training timeline con DevExpress ChartControl.
-4. Piccolo editor C# / DSL in stile NeuralPad script.
+1. Backpropagation e gradient debugger.
+2. Loss e training timeline con DevExpress ChartControl.
+3. Piccolo editor C# / DSL in stile NeuralPad script.
