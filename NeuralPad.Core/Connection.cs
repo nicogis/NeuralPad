@@ -14,6 +14,13 @@ public sealed class Connection
     public Neuron To { get; }
     public double Weight { get; set; }
     public double Contribution { get; internal set; }
+    public bool HasContribution { get; internal set; }
+
+    internal void ResetState()
+    {
+        Contribution = 0;
+        HasContribution = false;
+    }
 
     public override string ToString() => $"{From.Name} -> {To.Name}";
 }
