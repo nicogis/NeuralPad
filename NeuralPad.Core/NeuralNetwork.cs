@@ -5,6 +5,7 @@ public sealed class NeuralNetwork
     public List<Layer> Layers { get; } = [];
     public List<Connection> Connections { get; } = [];
     public IReadOnlyList<ForwardStep> LastTrace { get; private set; } = [];
+    public double? Loss { get; internal set; }
 
     public Layer AddLayer(int neuronCount, string name, ActivationKind activation)
     {
@@ -34,6 +35,39 @@ public sealed class NeuralNetwork
         return new ForwardSession(this, inputs.ToArray());
     }
 
+    public BackwardSession BeginBackward(double target)
+    {
+        if (Layers[^1].Neurons.Count != 1)
+            throw new InvalidOperationException("This PoC backward debugger currently supports a single output.");
+        if (!Layers[^1].Neurons[0].HasValue)
+            throw new InvalidOperationException("Run the forward pass before backpropagation.");
+        if (target is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(target), "BCE target must be between 0 and 1.");
+
+        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
+        {
+            neuron.Delta = 0;
+            neuron.BiasGradient = 0;
+            neuron.HasGradient = false;
+        }
+        foreach (var connection in Connections)
+        {
+            connection.Gradient = 0;
+            connection.HasGradient = false;
+        }
+        Loss = null;
+        return new BackwardSession(this, target);
+    }
+
+    public void ApplyGradients(double learningRate)
+    {
+        foreach (var connection in Connections.Where(c => c.HasGradient))
+            connection.Weight -= learningRate * connection.Gradient;
+
+        foreach (var neuron in Layers.Skip(1).SelectMany(l => l.Neurons).Where(n => n.HasGradient))
+            neuron.Bias -= learningRate * neuron.BiasGradient;
+    }
+
     public IReadOnlyList<ForwardStep> Forward(params double[] inputs)
     {
         var session = BeginForward(inputs);
@@ -46,6 +80,7 @@ public sealed class NeuralNetwork
         foreach (var neuron in Layers.SelectMany(l => l.Neurons)) neuron.ResetState();
         foreach (var connection in Connections) connection.ResetState();
         LastTrace = [];
+        Loss = null;
     }
 
     internal void SetTrace(IReadOnlyList<ForwardStep> trace) => LastTrace = trace.ToArray();
