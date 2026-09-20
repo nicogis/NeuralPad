@@ -20,19 +20,29 @@
             <StackPanel Orientation="Horizontal">
                 <Button Content="▶ Run" Command="{Binding RunCommand}" Padding="14,7" Margin="0,0,6,0"/>
                 <Button Content="⏭ Step" Command="{Binding StepCommand}" Padding="14,7" Margin="0,0,6,0"/>
-                <Button Content="↻ Reset" Command="{Binding ResetCommand}" Padding="14,7" Margin="0,0,20,0"/>
+                <Button Content="↻ Reset" Command="{Binding ResetCommand}" Padding="14,7" Margin="0,0,12,0"/>
+                <Button Content="◀ Step Backward" Command="{Binding StepBackwardCommand}" Padding="14,7" Margin="0,0,6,0"/>
+                <Button Content="◀◀ Run Backward" Command="{Binding RunBackwardCommand}" Padding="14,7" Margin="0,0,6,0"/>
+                <Button Content="Optimizer Step" Command="{Binding OptimizerStepCommand}" Padding="14,7" Margin="0,0,20,0"/>
                 <TextBlock Text="X1" VerticalAlignment="Center" Margin="0,0,5,0"/>
                 <dxe:SpinEdit Width="90" Value="{Binding X1, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
                 <TextBlock Text="X2" VerticalAlignment="Center" Margin="15,0,5,0"/>
                 <dxe:SpinEdit Width="90" Value="{Binding X2, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
-                <TextBlock Text="Output" VerticalAlignment="Center" Margin="25,0,5,0" FontWeight="SemiBold"/>
+                <TextBlock Text="Target" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                <dxe:SpinEdit Width="75" Value="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Increment="1" MinValue="0" MaxValue="1" Mask="n0"/>
+                <TextBlock Text="LR" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                <dxe:SpinEdit Width="75" Value="{Binding LearningRate, UpdateSourceTrigger=PropertyChanged}" Increment="0.01" MinValue="0" Mask="n3"/>
+                <TextBlock Text="Output" VerticalAlignment="Center" Margin="20,0,5,0" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding OutputText}" VerticalAlignment="Center" FontSize="18"/>
+                <TextBlock Text="Loss" VerticalAlignment="Center" Margin="15,0,5,0" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LossText}" VerticalAlignment="Center" FontSize="18"/>
             </StackPanel>
         </Border>
 
         <dxdo:DockLayoutManager Grid.Row="1" DockingStyle="VS2010">
             <dxdo:LayoutGroup Orientation="Horizontal">
-                <dxdo:LayoutPanel Caption="Forward Trace" ItemWidth="280">
+                <dxdo:LayoutGroup Orientation="Vertical" ItemWidth="300">
+                <dxdo:LayoutPanel Caption="Forward Trace">
                     <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
@@ -44,6 +54,19 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel Caption="Backward Trace">
+                    <ListBox ItemsSource="{Binding BackwardTrace}" SelectedItem="{Binding CurrentBackwardStep}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="4">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Formula}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </dxdo:LayoutPanel>
+                </dxdo:LayoutGroup>
 
                 <dxdo:LayoutGroup Orientation="Vertical">
                     <dxdo:DocumentGroup>
