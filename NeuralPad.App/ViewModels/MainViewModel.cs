@@ -16,6 +16,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel()
     {
         Network = NeuralNetwork.CreateDemo();
+        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
+            neuron.PropertyChanged += ParameterChanged;
+        foreach (var connection in Network.Connections)
+            connection.PropertyChanged += ParameterChanged;
+
         RunCommand = new RelayCommand(Run);
         StepCommand = new RelayCommand(Step);
         ResetCommand = new RelayCommand(Reset);
@@ -28,13 +33,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double X1
     {
         get => _x1;
-        set { if (SetField(ref _x1, value)) Reset(); }
+        set { if (SetField(ref _x1, value)) ResetExecution(keepSelection: true); }
     }
 
     public double X2
     {
         get => _x2;
-        set { if (SetField(ref _x2, value)) Reset(); }
+        set { if (SetField(ref _x2, value)) ResetExecution(keepSelection: true); }
     }
 
     public ForwardStep? CurrentStep
@@ -46,8 +51,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public object? SelectedObject
     {
         get => _selectedObject;
-        set => SetField(ref _selectedObject, value);
+        set
+        {
+            if (SetField(ref _selectedObject, value))
+                OnPropertyChanged(nameof(SelectionText));
+        }
     }
+
+    public string SelectionText => SelectedObject switch
+    {
+        Connection c => $"Connection {c.From.Name} -> {c.To.Name} | W = {c.Weight:0.####}",
+        Neuron n => $"Neuron {n.Name} | Bias = {n.Bias:0.####}",
+        _ => "Click a neuron or connection to inspect it."
+    };
 
     public string StepStatus => CurrentStep is null
         ? "Ready - press Step to begin"
@@ -66,6 +82,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    private void ParameterChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Changing a parameter invalidates every downstream value. Keep the selected
+        // graph object so the PropertyGrid remains useful while experimenting.
+        ResetExecution(keepSelection: true);
+        OnPropertyChanged(nameof(SelectionText));
+    }
+
     private void EnsureSession() => _session ??= Network.BeginForward(X1, X2);
 
     private void Run()
@@ -73,27 +97,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
         EnsureSession();
         _session!.RunToEnd();
         CurrentStep = _session.CurrentStep;
-        SelectedObject = CurrentStep?.Neuron;
         RefreshComputed();
     }
 
     private void Step()
     {
         if (_session?.IsCompleted == true)
-            Reset();
+            ResetExecution(keepSelection: true);
 
         EnsureSession();
         CurrentStep = _session!.Step();
-        SelectedObject = (object?)CurrentStep?.Connection ?? CurrentStep?.Neuron;
+        if (SelectedObject is null)
+            SelectedObject = (object?)CurrentStep?.Connection ?? CurrentStep?.Neuron;
         RefreshComputed();
     }
 
-    private void Reset()
+    private void Reset() => ResetExecution(keepSelection: false);
+
+    private void ResetExecution(bool keepSelection)
     {
         Network.ResetExecutionState();
         _session = null;
         CurrentStep = null;
-        SelectedObject = null;
+        if (!keepSelection) SelectedObject = null;
         RefreshComputed();
     }
 
@@ -104,6 +130,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StepStatus));
         OnPropertyChanged(nameof(Formula));
         OnPropertyChanged(nameof(Network));
+        OnPropertyChanged(nameof(SelectedObject));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
