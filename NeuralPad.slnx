@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NeuralPad.Core/NeuralPad.Core.csproj" />
+  <Project Path="NeuralPad.App/NeuralPad.App.csproj" />
+</Solution>
