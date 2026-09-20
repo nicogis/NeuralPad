@@ -7,11 +7,11 @@ namespace NeuralPad.App.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private int _stepIndex = -1;
     private object? _selectedObject;
     private double _x1 = 0.80;
     private double _x2 = 0.35;
     private ForwardStep? _currentStep;
+    private ForwardSession? _session;
 
     public MainViewModel()
     {
@@ -19,7 +19,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RunCommand = new RelayCommand(Run);
         StepCommand = new RelayCommand(Step);
         ResetCommand = new RelayCommand(Reset);
-        Run();
+        Reset();
     }
 
     public NeuralNetwork Network { get; }
@@ -28,13 +28,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double X1
     {
         get => _x1;
-        set { if (SetField(ref _x1, value)) Run(); }
+        set { if (SetField(ref _x1, value)) Reset(); }
     }
 
     public double X2
     {
         get => _x2;
-        set { if (SetField(ref _x2, value)) Run(); }
+        set { if (SetField(ref _x2, value)) Reset(); }
     }
 
     public ForwardStep? CurrentStep
@@ -50,11 +50,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public string StepStatus => CurrentStep is null
-        ? "Ready"
-        : $"Step {CurrentStep.Sequence}/{Trace.Count}: {CurrentStep.Title}";
+        ? "Ready - press Step to begin"
+        : _session?.IsCompleted == true
+            ? $"Completed: {Trace.Count} steps"
+            : $"Step {CurrentStep.Sequence}: {CurrentStep.Title}";
 
-    public string Formula => CurrentStep?.Formula ?? "Press Step to inspect the forward pass.";
-    public double Output => Network.Layers[^1].Neurons[0].Activation;
+    public string Formula => CurrentStep?.Formula ?? "The network has not executed any operation yet.";
+    public string OutputText => Network.Layers[^1].Neurons[0] is { HasValue: true } output
+        ? output.Activation.ToString("0.000000")
+        : "—";
 
     public ICommand RunCommand { get; }
     public ICommand StepCommand { get; }
@@ -62,44 +66,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    private void EnsureSession() => _session ??= Network.BeginForward(X1, X2);
+
     private void Run()
     {
-        Network.Forward(X1, X2);
-        _stepIndex = Trace.Count - 1;
-        CurrentStep = Trace.Count == 0 ? null : Trace[^1];
+        EnsureSession();
+        _session!.RunToEnd();
+        CurrentStep = _session.CurrentStep;
         SelectedObject = CurrentStep?.Neuron;
         RefreshComputed();
     }
 
     private void Step()
     {
-        if (Trace.Count == 0 || _stepIndex >= Trace.Count - 1)
-        {
-            Network.Forward(X1, X2);
-            _stepIndex = -1;
-        }
+        if (_session?.IsCompleted == true)
+            Reset();
 
-        _stepIndex++;
-        CurrentStep = Trace[_stepIndex];
-        SelectedObject = (object?)CurrentStep.Connection ?? CurrentStep.Neuron;
+        EnsureSession();
+        CurrentStep = _session!.Step();
+        SelectedObject = (object?)CurrentStep?.Connection ?? CurrentStep?.Neuron;
         RefreshComputed();
     }
 
     private void Reset()
     {
-        _stepIndex = -1;
+        Network.ResetExecutionState();
+        _session = null;
         CurrentStep = null;
         SelectedObject = null;
-        OnPropertyChanged(nameof(StepStatus));
-        OnPropertyChanged(nameof(Formula));
+        RefreshComputed();
     }
 
     private void RefreshComputed()
     {
         OnPropertyChanged(nameof(Trace));
-        OnPropertyChanged(nameof(Output));
+        OnPropertyChanged(nameof(OutputText));
         OnPropertyChanged(nameof(StepStatus));
         OnPropertyChanged(nameof(Formula));
+        OnPropertyChanged(nameof(Network));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
