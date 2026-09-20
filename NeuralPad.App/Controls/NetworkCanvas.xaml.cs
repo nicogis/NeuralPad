@@ -17,6 +17,10 @@ public partial class NetworkCanvas : UserControl
         nameof(CurrentStep), typeof(ForwardStep), typeof(NetworkCanvas),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnVisualChanged));
 
+    public static readonly DependencyProperty CurrentBackwardStepProperty = DependencyProperty.Register(
+        nameof(CurrentBackwardStep), typeof(BackwardStep), typeof(NetworkCanvas),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnVisualChanged));
+
     public static readonly DependencyProperty SelectedObjectProperty = DependencyProperty.Register(
         nameof(SelectedObject), typeof(object), typeof(NetworkCanvas),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnVisualChanged));
@@ -31,6 +35,12 @@ public partial class NetworkCanvas : UserControl
     {
         get => (ForwardStep?)GetValue(CurrentStepProperty);
         set => SetValue(CurrentStepProperty, value);
+    }
+
+    public BackwardStep? CurrentBackwardStep
+    {
+        get => (BackwardStep?)GetValue(CurrentBackwardStepProperty);
+        set => SetValue(CurrentBackwardStepProperty, value);
     }
 
     public object? SelectedObject
@@ -72,11 +82,11 @@ public partial class NetworkCanvas : UserControl
         {
             var from = positions[connection.From];
             var to = positions[connection.To];
-            var active = CurrentStep?.Connection == connection;
+            var forwardActive = CurrentStep?.Connection == connection;
+            var backwardActive = CurrentBackwardStep?.Connection == connection;
             var selected = ReferenceEquals(SelectedObject, connection);
             var executed = connection.HasContribution;
 
-            // Wide transparent hit target: thin visual weights remain easy to click.
             var hitLine = new Line
             {
                 X1 = from.X, Y1 = from.Y, X2 = to.X, Y2 = to.Y,
@@ -91,52 +101,156 @@ public partial class NetworkCanvas : UserControl
             var line = new Line
             {
                 X1 = from.X, Y1 = from.Y, X2 = to.X, Y2 = to.Y,
-                Stroke = selected ? Brushes.White : active ? Brushes.Gold :
+                Stroke = selected ? Brushes.White :
+                    backwardActive ? Brushes.MediumPurple :
+                    forwardActive ? Brushes.Gold :
                     !executed ? Brushes.DimGray :
                     connection.Weight >= 0 ? Brushes.DodgerBlue : Brushes.IndianRed,
-                StrokeThickness = selected ? 6 : active ? 5 : 1.2 + Math.Min(4, Math.Abs(connection.Weight) * 3),
-                Opacity = selected || active ? 1 : executed ? 0.75 : 0.25,
-                IsHitTestVisible = false,
-                ToolTip = executed
-                    ? $"{connection}\nWeight = {connection.Weight:0.####}\nContribution = {connection.Contribution:0.####}"
-                    : $"{connection}\nWeight = {connection.Weight:0.####}\nContribution = not executed"
+                StrokeThickness = selected ? 6 : backwardActive || forwardActive ? 5 : 1.2 + Math.Min(4, Math.Abs(connection.Weight) * 3),
+                Opacity = selected || backwardActive || forwardActive ? 1 : executed ? 0.75 : 0.25,
+                IsHitTestVisible = false
             };
             PART_Canvas.Children.Add(line);
+
+            if (backwardActive)
+                DrawBackwardArrow(from, to);
+
+            DrawConnectionLabel(connection, from, to);
         }
 
         foreach (var (neuron, point) in positions)
         {
-            var active = CurrentStep?.Neuron == neuron;
+            var forwardActive = CurrentStep?.Neuron == neuron;
+            var backwardActive = CurrentBackwardStep?.Neuron == neuron;
             var selected = ReferenceEquals(SelectedObject, neuron);
+
             var ellipse = new Ellipse
             {
-                Width = 54, Height = 54,
-                Fill = active ? Brushes.Gold : neuron.HasValue ? Brushes.SlateGray : Brushes.Black,
-                Stroke = selected ? Brushes.White : active ? Brushes.Gold : neuron.HasValue ? Brushes.White : Brushes.DimGray,
-                StrokeThickness = selected ? 5 : active ? 3 : 1.5,
+                Width = 58, Height = 58,
+                Fill = backwardActive ? Brushes.MediumPurple :
+                    forwardActive ? Brushes.Gold :
+                    neuron.HasValue ? Brushes.SlateGray : Brushes.Black,
+                Stroke = selected ? Brushes.White :
+                    backwardActive ? Brushes.Plum :
+                    forwardActive ? Brushes.Gold :
+                    neuron.HasValue ? Brushes.White : Brushes.DimGray,
+                StrokeThickness = selected ? 5 : backwardActive || forwardActive ? 3 : 1.5,
                 Cursor = Cursors.Hand,
                 Tag = neuron,
-                ToolTip = neuron.HasValue
-                    ? $"{neuron.Name}\nBias = {neuron.Bias:0.####}\nZ = {neuron.Z:0.####}\nA = {neuron.Activation:0.####}"
-                    : $"{neuron.Name}\nBias = {neuron.Bias:0.####}\nNot executed"
+                ToolTip = BuildNeuronTooltip(neuron)
             };
             ellipse.MouseLeftButtonDown += SelectGraphObject;
-            Canvas.SetLeft(ellipse, point.X - 27);
-            Canvas.SetTop(ellipse, point.Y - 27);
+            Canvas.SetLeft(ellipse, point.X - 29);
+            Canvas.SetTop(ellipse, point.Y - 29);
             PART_Canvas.Children.Add(ellipse);
 
+            var valueText = neuron.HasValue ? neuron.Activation.ToString("0.###") : "—";
+            var deltaText = neuron.HasGradient ? $"δ {neuron.Delta:0.###}" : "δ —";
             var label = new TextBlock
             {
-                Text = $"{neuron.Name}\n{(neuron.HasValue ? neuron.Activation.ToString("0.###") : "—")}",
+                Text = CurrentBackwardStep is not null
+                    ? $"{neuron.Name}\n{valueText}\n{deltaText}"
+                    : $"{neuron.Name}\n{valueText}",
                 Foreground = Brushes.White,
                 TextAlignment = TextAlignment.Center,
-                Width = 70,
-                IsHitTestVisible = false
+                Width = 82,
+                IsHitTestVisible = false,
+                FontSize = 11
             };
-            Canvas.SetLeft(label, point.X - 35);
-            Canvas.SetTop(label, point.Y - 16);
+            Canvas.SetLeft(label, point.X - 41);
+            Canvas.SetTop(label, point.Y - (CurrentBackwardStep is not null ? 24 : 16));
             PART_Canvas.Children.Add(label);
         }
+    }
+
+    private void DrawConnectionLabel(Connection connection, Point from, Point to)
+    {
+        if (!connection.HasContribution && !connection.HasGradient) return;
+
+        var mid = new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2);
+        var parts = new List<string> { $"w {connection.Weight:0.###}" };
+        if (connection.HasContribution) parts.Add($"xw {connection.Contribution:0.###}");
+        if (connection.HasGradient) parts.Add($"dw {connection.Gradient:0.###}");
+
+        var border = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(210, 24, 26, 32)),
+            BorderBrush = connection.HasGradient ? Brushes.MediumPurple : Brushes.DimGray,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4, 2, 4, 2),
+            IsHitTestVisible = false,
+            Child = new TextBlock
+            {
+                Text = string.Join(" | ", parts),
+                Foreground = Brushes.White,
+                FontSize = 10
+            }
+        };
+
+        Canvas.SetLeft(border, mid.X - 45);
+        Canvas.SetTop(border, mid.Y - 12);
+        PART_Canvas.Children.Add(border);
+    }
+
+    private void DrawBackwardArrow(Point from, Point to)
+    {
+        // Arrow head points from target back toward source.
+        var dx = from.X - to.X;
+        var dy = from.Y - to.Y;
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        if (length < 1) return;
+
+        var ux = dx / length;
+        var uy = dy / length;
+        var px = -uy;
+        var py = ux;
+
+        var center = new Point(
+            to.X + dx * 0.35,
+            to.Y + dy * 0.35);
+
+        const double size = 10;
+        var tip = new Point(center.X + ux * size, center.Y + uy * size);
+        var left = new Point(center.X - ux * size * 0.6 + px * size * 0.7, center.Y - uy * size * 0.6 + py * size * 0.7);
+        var right = new Point(center.X - ux * size * 0.6 - px * size * 0.7, center.Y - uy * size * 0.6 - py * size * 0.7);
+
+        var arrow = new Polygon
+        {
+            Points = new PointCollection { tip, left, right },
+            Fill = Brushes.MediumPurple,
+            Stroke = Brushes.White,
+            StrokeThickness = 1,
+            IsHitTestVisible = false
+        };
+        PART_Canvas.Children.Add(arrow);
+    }
+
+    private static string BuildNeuronTooltip(Neuron neuron)
+    {
+        var lines = new List<string>
+        {
+            neuron.Name,
+            $"Bias = {neuron.Bias:0.####}"
+        };
+
+        if (neuron.HasValue)
+        {
+            lines.Add($"Z = {neuron.Z:0.####}");
+            lines.Add($"A = {neuron.Activation:0.####}");
+        }
+        else
+            lines.Add("Forward: not executed");
+
+        if (neuron.HasGradient)
+        {
+            lines.Add($"Delta = {neuron.Delta:0.######}");
+            lines.Add($"dL/db = {neuron.BiasGradient:0.######}");
+        }
+        else
+            lines.Add("Backward: not executed");
+
+        return string.Join("\n", lines);
     }
 
     private void SelectGraphObject(object sender, MouseButtonEventArgs e)
