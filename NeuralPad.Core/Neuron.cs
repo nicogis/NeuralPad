@@ -36,15 +36,21 @@ public sealed class Neuron : INotifyPropertyChanged
     public double Activation { get; internal set; }
     public bool HasValue { get; internal set; }
 
+    public double Delta { get; internal set; }
+    public double BiasGradient { get; internal set; }
+    public bool HasGradient { get; internal set; }
+
     internal void ResetState()
     {
         Z = 0;
         Activation = 0;
         HasValue = false;
+        Delta = 0;
+        BiasGradient = 0;
+        HasGradient = false;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
