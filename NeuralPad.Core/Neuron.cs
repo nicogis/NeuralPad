@@ -18,6 +18,14 @@ public sealed class Neuron
     public double Bias { get; set; }
     public double Z { get; internal set; }
     public double Activation { get; internal set; }
+    public bool HasValue { get; internal set; }
+
+    internal void ResetState()
+    {
+        Z = 0;
+        Activation = 0;
+        HasValue = false;
+    }
 
     public override string ToString() => Name;
 }
