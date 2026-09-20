@@ -25,7 +25,7 @@
                 <TextBlock Text="X2" VerticalAlignment="Center" Margin="15,0,5,0"/>
                 <dxe:SpinEdit Width="90" Value="{Binding X2, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
                 <TextBlock Text="Output" VerticalAlignment="Center" Margin="25,0,5,0" FontWeight="SemiBold"/>
-                <TextBlock Text="{Binding Output, StringFormat=F6}" VerticalAlignment="Center" FontSize="18"/>
+                <TextBlock Text="{Binding OutputText}" VerticalAlignment="Center" FontSize="18"/>
             </StackPanel>
         </Border>
 
