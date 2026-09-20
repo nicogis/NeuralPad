@@ -6,6 +6,7 @@
     xmlns:dxdo="http://schemas.devexpress.com/winfx/2008/xaml/docking"
     xmlns:dxprg="http://schemas.devexpress.com/winfx/2008/xaml/propertygrid"
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+    xmlns:dxc="http://schemas.devexpress.com/winfx/2008/xaml/charts"
     xmlns:local="clr-namespace:NeuralPad.App.Controls"
     Title="NeuralPad" Width="1500" Height="900" WindowStartupLocation="CenterScreen">
 
@@ -77,6 +78,43 @@
                                                  SelectedObject="{Binding SelectedObject, Mode=TwoWay}"/>
                         </dxdo:DocumentPanel>
                     </dxdo:DocumentGroup>
+
+                    <dxdo:LayoutPanel Caption="Training / XOR" ItemHeight="310">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="135"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Margin="4">
+                                <Button Content="Train Sample" Command="{Binding TrainSampleCommand}" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Train Epoch" Command="{Binding TrainEpochCommand}" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Load in Debugger" Command="{Binding LoadTrainingSampleCommand}" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Clear History" Command="{Binding ResetTrainingCommand}" Padding="10,4"/>
+                                <TextBlock Text="{Binding TrainingStatus}" VerticalAlignment="Center" Margin="14,0,0,0" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <dxg:GridControl Grid.Row="1" ItemsSource="{Binding TrainingSamples}" SelectedItem="{Binding SelectedTrainingSample}">
+                                <dxg:GridControl.Columns>
+                                    <dxg:GridColumn FieldName="X1" Header="X1" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="X2" Header="X2" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="Target" Header="Target" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="PredictionText" Header="Prediction" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="LossText" Header="Loss" ReadOnly="True"/>
+                                </dxg:GridControl.Columns>
+                                <dxg:GridControl.View>
+                                    <dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Row"/>
+                                </dxg:GridControl.View>
+                            </dxg:GridControl>
+                            <dxc:ChartControl Grid.Row="2" DataSource="{Binding TrainingHistory}">
+                                <dxc:XYDiagram2D>
+                                    <dxc:LineSeries2D DisplayName="Average BCE"
+                                                      ArgumentDataMember="Epoch"
+                                                      ValueDataMember="Loss"
+                                                      MarkerVisible="True"/>
+                                </dxc:XYDiagram2D>
+                            </dxc:ChartControl>
+                        </Grid>
+                    </dxdo:LayoutPanel>
 
                     <dxdo:LayoutPanel Caption="Watch" ItemHeight="230">
                         <Grid>
