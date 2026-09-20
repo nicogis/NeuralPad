@@ -46,7 +46,9 @@
 
                 <dxdo:DocumentGroup>
                     <dxdo:DocumentPanel Caption="Network" AllowClose="False">
-                        <local:NetworkCanvas Network="{Binding Network}" CurrentStep="{Binding CurrentStep}"/>
+                        <local:NetworkCanvas Network="{Binding Network}"
+                                             CurrentStep="{Binding CurrentStep}"
+                                             SelectedObject="{Binding SelectedObject, Mode=TwoWay}"/>
                     </dxdo:DocumentPanel>
                 </dxdo:DocumentGroup>
 
@@ -56,7 +58,16 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <dxprg:PropertyGridControl SelectedObject="{Binding SelectedObject}" ShowSearchBox="True"/>
+                        <Grid Grid.Row="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding SelectionText}" Margin="8" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                            <dxprg:PropertyGridControl Grid.Row="1"
+                                SelectedObject="{Binding SelectedObject}"
+                                ShowSearchBox="True"/>
+                        </Grid>
                         <Border Grid.Row="1" Margin="0,8,0,0" Padding="10" BorderBrush="#40444B" BorderThickness="1">
                             <StackPanel>
                                 <TextBlock Text="Current math" FontWeight="SemiBold" Margin="0,0,0,6"/>
