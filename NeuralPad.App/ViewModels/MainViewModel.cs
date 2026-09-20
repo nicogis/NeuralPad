@@ -15,6 +15,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private ForwardSession? _session;
     private BackwardSession? _backwardSession;
     private readonly WatchEvaluator _watchEvaluator;
+    private TrainingSample? _selectedTrainingSample;
+    private int _epoch;
+    private int _sampleIndex;
 
     public MainViewModel()
     {
@@ -24,6 +27,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         foreach (var connection in Network.Connections) connection.PropertyChanged += ParameterChanged;
 
         Watches = [CreateWatch("H1.Activation"), CreateWatch("O1.Z"), CreateWatch("O1.Activation"), CreateWatch("W(H1,O1)")];
+        TrainingSamples =
+        [
+            new(0, 0, 0),
+            new(0, 1, 1),
+            new(1, 0, 1),
+            new(1, 1, 0)
+        ];
+        SelectedTrainingSample = TrainingSamples[0];
 
         RunCommand = new RelayCommand(Run);
         StepCommand = new RelayCommand(Step);
@@ -31,15 +42,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         StepBackwardCommand = new RelayCommand(StepBackward);
         RunBackwardCommand = new RelayCommand(RunBackward);
         OptimizerStepCommand = new RelayCommand(OptimizerStep);
+        TrainSampleCommand = new RelayCommand(TrainSample);
+        TrainEpochCommand = new RelayCommand(TrainEpoch);
+        LoadTrainingSampleCommand = new RelayCommand(LoadSelectedTrainingSample, () => SelectedTrainingSample is not null);
+        ResetTrainingCommand = new RelayCommand(ResetTrainingHistory);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
         Reset();
+        EvaluateDataset();
     }
 
     public NeuralNetwork Network { get; }
     public IReadOnlyList<ForwardStep> Trace => Network.LastTrace;
     public ObservableCollection<BackwardStep> BackwardTrace { get; } = [];
     public ObservableCollection<WatchItem> Watches { get; }
+    public ObservableCollection<TrainingSample> TrainingSamples { get; }
+    public ObservableCollection<TrainingPoint> TrainingHistory { get; } = [];
 
     private WatchItem? _selectedWatch;
     public WatchItem? SelectedWatch
@@ -48,6 +66,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         set { if (SetField(ref _selectedWatch, value) && RemoveWatchCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
     }
 
+    public TrainingSample? SelectedTrainingSample
+    {
+        get => _selectedTrainingSample;
+        set
+        {
+            if (SetField(ref _selectedTrainingSample, value) && LoadTrainingSampleCommand is RelayCommand c)
+                c.RaiseCanExecuteChanged();
+        }
+    }
+
+    public int Epoch { get => _epoch; private set => SetField(ref _epoch, value); }
+    public string TrainingStatus => $"Epoch {Epoch} | next sample {_sampleIndex + 1}/{TrainingSamples.Count}";
     public double X1 { get => _x1; set { if (SetField(ref _x1, value)) ResetExecution(true); } }
     public double X2 { get => _x2; set { if (SetField(ref _x2, value)) ResetExecution(true); } }
     public double Target { get => _target; set { if (SetField(ref _target, Math.Clamp(value, 0, 1))) ResetBackward(); } }
@@ -85,6 +115,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand StepBackwardCommand { get; }
     public ICommand RunBackwardCommand { get; }
     public ICommand OptimizerStepCommand { get; }
+    public ICommand TrainSampleCommand { get; }
+    public ICommand TrainEpochCommand { get; }
+    public ICommand LoadTrainingSampleCommand { get; }
+    public ICommand ResetTrainingCommand { get; }
     public ICommand AddWatchCommand { get; }
     public ICommand RemoveWatchCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -148,8 +182,107 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         EnsureBackward();
         if (_backwardSession?.IsCompleted == false) RunBackward();
-        Network.ApplyGradients(LearningRate);
+        ApplyGradientsWithoutInvalidation();
         ResetExecution(true);
+        EvaluateDataset();
+    }
+
+    private void TrainSample()
+    {
+        var sample = TrainingSamples[_sampleIndex];
+        TrainOne(sample);
+        _sampleIndex++;
+        if (_sampleIndex >= TrainingSamples.Count)
+        {
+            _sampleIndex = 0;
+            Epoch++;
+            RecordEpochLoss();
+        }
+        EvaluateDataset();
+        LoadSampleIntoDebugger(sample);
+        OnPropertyChanged(nameof(TrainingStatus));
+    }
+
+    private void TrainEpoch()
+    {
+        foreach (var sample in TrainingSamples) TrainOne(sample);
+        _sampleIndex = 0;
+        Epoch++;
+        EvaluateDataset();
+        RecordEpochLoss();
+        LoadSampleIntoDebugger(TrainingSamples[0]);
+        OnPropertyChanged(nameof(TrainingStatus));
+    }
+
+    private void TrainOne(TrainingSample sample)
+    {
+        var forward = Network.BeginForward(sample.X1, sample.X2);
+        forward.RunToEnd();
+        var backward = Network.BeginBackward(sample.Target);
+        backward.RunToEnd();
+        ApplyGradientsWithoutInvalidation();
+    }
+
+    private void ApplyGradientsWithoutInvalidation()
+    {
+        // Temporarily detach parameter notifications so SGD can update all parameters atomically.
+        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons)) neuron.PropertyChanged -= ParameterChanged;
+        foreach (var connection in Network.Connections) connection.PropertyChanged -= ParameterChanged;
+        try { Network.ApplyGradients(LearningRate); }
+        finally
+        {
+            foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons)) neuron.PropertyChanged += ParameterChanged;
+            foreach (var connection in Network.Connections) connection.PropertyChanged += ParameterChanged;
+        }
+    }
+
+    private void EvaluateDataset()
+    {
+        foreach (var sample in TrainingSamples)
+        {
+            var forward = Network.BeginForward(sample.X1, sample.X2);
+            forward.RunToEnd();
+            var prediction = Network.Layers[^1].Neurons[0].Activation;
+            var p = Math.Clamp(prediction, 1e-12, 1 - 1e-12);
+            sample.Prediction = prediction;
+            sample.Loss = -(sample.Target * Math.Log(p) + (1 - sample.Target) * Math.Log(1 - p));
+        }
+        Network.ResetExecutionState();
+        _session = null;
+        _backwardSession = null;
+        CurrentStep = null;
+        CurrentBackwardStep = null;
+        BackwardTrace.Clear();
+        RefreshComputed();
+    }
+
+    private void RecordEpochLoss()
+    {
+        var average = TrainingSamples.Average(s => s.Loss ?? 0);
+        TrainingHistory.Add(new TrainingPoint(Epoch, average));
+    }
+
+    private void LoadSelectedTrainingSample()
+    {
+        if (SelectedTrainingSample is not null) LoadSampleIntoDebugger(SelectedTrainingSample);
+    }
+
+    private void LoadSampleIntoDebugger(TrainingSample sample)
+    {
+        _x1 = sample.X1;
+        _x2 = sample.X2;
+        _target = sample.Target;
+        OnPropertyChanged(nameof(X1)); OnPropertyChanged(nameof(X2)); OnPropertyChanged(nameof(Target));
+        ResetExecution(true);
+    }
+
+    private void ResetTrainingHistory()
+    {
+        Epoch = 0;
+        _sampleIndex = 0;
+        TrainingHistory.Clear();
+        EvaluateDataset();
+        OnPropertyChanged(nameof(TrainingStatus));
     }
 
     private void Reset() => ResetExecution(false);
