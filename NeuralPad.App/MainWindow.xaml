@@ -5,6 +5,7 @@
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
     xmlns:dxdo="http://schemas.devexpress.com/winfx/2008/xaml/docking"
     xmlns:dxprg="http://schemas.devexpress.com/winfx/2008/xaml/propertygrid"
+    xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:local="clr-namespace:NeuralPad.App.Controls"
     Title="NeuralPad" Width="1500" Height="900" WindowStartupLocation="CenterScreen">
 
@@ -44,13 +45,40 @@
                     </ListBox>
                 </dxdo:LayoutPanel>
 
-                <dxdo:DocumentGroup>
-                    <dxdo:DocumentPanel Caption="Network" AllowClose="False">
-                        <local:NetworkCanvas Network="{Binding Network}"
-                                             CurrentStep="{Binding CurrentStep}"
-                                             SelectedObject="{Binding SelectedObject, Mode=TwoWay}"/>
-                    </dxdo:DocumentPanel>
-                </dxdo:DocumentGroup>
+                <dxdo:LayoutGroup Orientation="Vertical">
+                    <dxdo:DocumentGroup>
+                        <dxdo:DocumentPanel Caption="Network" AllowClose="False">
+                            <local:NetworkCanvas Network="{Binding Network}"
+                                                 CurrentStep="{Binding CurrentStep}"
+                                                 SelectedObject="{Binding SelectedObject, Mode=TwoWay}"/>
+                        </dxdo:DocumentPanel>
+                    </dxdo:DocumentGroup>
+
+                    <dxdo:LayoutPanel Caption="Watch" ItemHeight="230">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Margin="4">
+                                <Button Content="+ Watch" Command="{Binding AddWatchCommand}" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Remove" Command="{Binding RemoveWatchCommand}" Padding="10,4"/>
+                                <TextBlock Margin="12,0,0,0" VerticalAlignment="Center"
+                                           Text="Examples: H1.Activation   O1.Z   H1.Bias   W(H1,O1)" Opacity="0.65"/>
+                            </StackPanel>
+                            <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Watches}" SelectedItem="{Binding SelectedWatch}">
+                                <dxg:GridControl.Columns>
+                                    <dxg:GridColumn FieldName="Expression" Header="Expression" Width="2*"/>
+                                    <dxg:GridColumn FieldName="Value" Header="Value" Width="*" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="Error" Header="Status" Width="2*" ReadOnly="True"/>
+                                </dxg:GridControl.Columns>
+                                <dxg:GridControl.View>
+                                    <dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Cell"/>
+                                </dxg:GridControl.View>
+                            </dxg:GridControl>
+                        </Grid>
+                    </dxdo:LayoutPanel>
+                </dxdo:LayoutGroup>
 
                 <dxdo:LayoutPanel Caption="Inspector" ItemWidth="320">
                     <Grid>
