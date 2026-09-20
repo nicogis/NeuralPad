@@ -1,7 +1,12 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
 namespace NeuralPad.Core;
 
-public sealed class Neuron
+public sealed class Neuron : INotifyPropertyChanged
 {
+    private double _bias;
+
     public Neuron(string name, int layerIndex, int index, ActivationKind activation)
     {
         Name = name;
@@ -15,7 +20,18 @@ public sealed class Neuron
     public int LayerIndex { get; }
     public int Index { get; }
     public ActivationKind ActivationKind { get; }
-    public double Bias { get; set; }
+
+    public double Bias
+    {
+        get => _bias;
+        set
+        {
+            if (Math.Abs(_bias - value) < double.Epsilon) return;
+            _bias = value;
+            OnPropertyChanged();
+        }
+    }
+
     public double Z { get; internal set; }
     public double Activation { get; internal set; }
     public bool HasValue { get; internal set; }
@@ -26,6 +42,11 @@ public sealed class Neuron
         Activation = 0;
         HasValue = false;
     }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     public override string ToString() => Name;
 }
