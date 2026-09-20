@@ -73,6 +73,7 @@
                         <dxdo:DocumentPanel Caption="Network" AllowClose="False">
                             <local:NetworkCanvas Network="{Binding Network}"
                                                  CurrentStep="{Binding CurrentStep}"
+                                                 CurrentBackwardStep="{Binding CurrentBackwardStep}"
                                                  SelectedObject="{Binding SelectedObject, Mode=TwoWay}"/>
                         </dxdo:DocumentPanel>
                     </dxdo:DocumentGroup>
