@@ -9,34 +9,28 @@ namespace NeuralPad.App.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private object? _selectedObject;
-    private double _x1 = 0.80;
-    private double _x2 = 0.35;
+    private double _x1 = 0.80, _x2 = 0.35, _target = 1.0, _learningRate = 0.10;
     private ForwardStep? _currentStep;
+    private BackwardStep? _currentBackwardStep;
     private ForwardSession? _session;
+    private BackwardSession? _backwardSession;
     private readonly WatchEvaluator _watchEvaluator;
 
     public MainViewModel()
     {
         Network = NeuralNetwork.CreateDemo();
         _watchEvaluator = new WatchEvaluator(Network);
+        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons)) neuron.PropertyChanged += ParameterChanged;
+        foreach (var connection in Network.Connections) connection.PropertyChanged += ParameterChanged;
 
-        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
-            neuron.PropertyChanged += ParameterChanged;
-        foreach (var connection in Network.Connections)
-            connection.PropertyChanged += ParameterChanged;
-
-        Watches =
-        [
-            CreateWatch("H1.Activation"),
-            CreateWatch("H2.Activation"),
-            CreateWatch("O1.Z"),
-            CreateWatch("O1.Activation"),
-            CreateWatch("W(H1,O1)")
-        ];
+        Watches = [CreateWatch("H1.Activation"), CreateWatch("O1.Z"), CreateWatch("O1.Activation"), CreateWatch("W(H1,O1)")];
 
         RunCommand = new RelayCommand(Run);
         StepCommand = new RelayCommand(Step);
         ResetCommand = new RelayCommand(Reset);
+        StepBackwardCommand = new RelayCommand(StepBackward);
+        RunBackwardCommand = new RelayCommand(RunBackward);
+        OptimizerStepCommand = new RelayCommand(OptimizerStep);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
         Reset();
@@ -44,149 +38,137 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public NeuralNetwork Network { get; }
     public IReadOnlyList<ForwardStep> Trace => Network.LastTrace;
+    public ObservableCollection<BackwardStep> BackwardTrace { get; } = [];
     public ObservableCollection<WatchItem> Watches { get; }
 
     private WatchItem? _selectedWatch;
     public WatchItem? SelectedWatch
     {
         get => _selectedWatch;
-        set
-        {
-            if (SetField(ref _selectedWatch, value) && RemoveWatchCommand is RelayCommand command)
-                command.RaiseCanExecuteChanged();
-        }
+        set { if (SetField(ref _selectedWatch, value) && RemoveWatchCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
     }
 
-    public double X1
-    {
-        get => _x1;
-        set { if (SetField(ref _x1, value)) ResetExecution(keepSelection: true); }
-    }
+    public double X1 { get => _x1; set { if (SetField(ref _x1, value)) ResetExecution(true); } }
+    public double X2 { get => _x2; set { if (SetField(ref _x2, value)) ResetExecution(true); } }
+    public double Target { get => _target; set { if (SetField(ref _target, Math.Clamp(value, 0, 1))) ResetBackward(); } }
+    public double LearningRate { get => _learningRate; set => SetField(ref _learningRate, Math.Max(0, value)); }
 
-    public double X2
-    {
-        get => _x2;
-        set { if (SetField(ref _x2, value)) ResetExecution(keepSelection: true); }
-    }
-
-    public ForwardStep? CurrentStep
-    {
-        get => _currentStep;
-        private set => SetField(ref _currentStep, value);
-    }
+    public ForwardStep? CurrentStep { get => _currentStep; private set => SetField(ref _currentStep, value); }
+    public BackwardStep? CurrentBackwardStep { get => _currentBackwardStep; private set => SetField(ref _currentBackwardStep, value); }
 
     public object? SelectedObject
     {
         get => _selectedObject;
-        set
-        {
-            if (SetField(ref _selectedObject, value))
-                OnPropertyChanged(nameof(SelectionText));
-        }
+        set { if (SetField(ref _selectedObject, value)) OnPropertyChanged(nameof(SelectionText)); }
     }
 
     public string SelectionText => SelectedObject switch
     {
-        Connection c => $"Connection {c.From.Name} -> {c.To.Name} | W = {c.Weight:0.####}",
-        Neuron n => $"Neuron {n.Name} | Bias = {n.Bias:0.####}",
+        Connection c => $"Connection {c.From.Name} -> {c.To.Name} | W={c.Weight:0.####} | grad={(c.HasGradient ? c.Gradient.ToString("0.######") : "—")}",
+        Neuron n => $"Neuron {n.Name} | Bias={n.Bias:0.####} | delta={(n.HasGradient ? n.Delta.ToString("0.######") : "—")}",
         _ => "Click a neuron or connection to inspect it."
     };
 
-    public string StepStatus => CurrentStep is null
-        ? "Ready - press Step to begin"
-        : _session?.IsCompleted == true
-            ? $"Completed: {Trace.Count} steps"
-            : $"Step {CurrentStep.Sequence}: {CurrentStep.Title}";
+    public string StepStatus => CurrentBackwardStep is not null
+        ? $"Backward {CurrentBackwardStep.Sequence}: {CurrentBackwardStep.Title}"
+        : CurrentStep is null ? "Ready - press Step to begin"
+        : _session?.IsCompleted == true ? $"Forward completed: {Trace.Count} steps"
+        : $"Forward {CurrentStep.Sequence}: {CurrentStep.Title}";
 
-    public string Formula => CurrentStep?.Formula ?? "The network has not executed any operation yet.";
-    public string OutputText => Network.Layers[^1].Neurons[0] is { HasValue: true } output
-        ? output.Activation.ToString("0.000000")
-        : "—";
+    public string Formula => CurrentBackwardStep?.Formula ?? CurrentStep?.Formula ?? "The network has not executed any operation yet.";
+    public string OutputText => Network.Layers[^1].Neurons[0] is { HasValue: true } o ? o.Activation.ToString("0.000000") : "—";
+    public string LossText => Network.Loss?.ToString("0.000000") ?? "—";
 
     public ICommand RunCommand { get; }
     public ICommand StepCommand { get; }
     public ICommand ResetCommand { get; }
+    public ICommand StepBackwardCommand { get; }
+    public ICommand RunBackwardCommand { get; }
+    public ICommand OptimizerStepCommand { get; }
     public ICommand AddWatchCommand { get; }
     public ICommand RemoveWatchCommand { get; }
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private WatchItem CreateWatch(string expression)
-    {
-        var item = new WatchItem(expression);
-        item.PropertyChanged += WatchChanged;
-        return item;
-    }
+    private WatchItem CreateWatch(string expression) { var x = new WatchItem(expression); x.PropertyChanged += WatchChanged; return x; }
+    private void AddWatch() { var x = CreateWatch("H1.Activation"); Watches.Add(x); SelectedWatch = x; RefreshWatches(); }
+    private void RemoveSelectedWatch() { if (SelectedWatch is null) return; SelectedWatch.PropertyChanged -= WatchChanged; Watches.Remove(SelectedWatch); SelectedWatch = null; }
+    private void WatchChanged(object? s, PropertyChangedEventArgs e) { if (e.PropertyName == nameof(WatchItem.Expression) && s is WatchItem w) RefreshWatch(w); }
+    private void RefreshWatches() { foreach (var w in Watches) RefreshWatch(w); }
+    private void RefreshWatch(WatchItem w) { var r = _watchEvaluator.Evaluate(w.Expression); w.Value = r.Value; w.Error = r.Error; }
 
-    private void AddWatch()
-    {
-        var item = CreateWatch("H1.Activation");
-        Watches.Add(item);
-        SelectedWatch = item;
-        RefreshWatches();
-    }
-
-    private void RemoveSelectedWatch()
-    {
-        if (SelectedWatch is null) return;
-        SelectedWatch.PropertyChanged -= WatchChanged;
-        Watches.Remove(SelectedWatch);
-        SelectedWatch = null;
-    }
-
-    private void WatchChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(WatchItem.Expression) && sender is WatchItem item)
-            RefreshWatch(item);
-    }
-
-    private void RefreshWatches()
-    {
-        foreach (var watch in Watches) RefreshWatch(watch);
-    }
-
-    private void RefreshWatch(WatchItem watch)
-    {
-        var result = _watchEvaluator.Evaluate(watch.Expression);
-        watch.Value = result.Value;
-        watch.Error = result.Error;
-    }
-
-    private void ParameterChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        ResetExecution(keepSelection: true);
-        OnPropertyChanged(nameof(SelectionText));
-    }
-
+    private void ParameterChanged(object? sender, PropertyChangedEventArgs e) { ResetExecution(true); OnPropertyChanged(nameof(SelectionText)); }
     private void EnsureSession() => _session ??= Network.BeginForward(X1, X2);
 
     private void Run()
     {
-        EnsureSession();
-        _session!.RunToEnd();
-        CurrentStep = _session.CurrentStep;
-        RefreshComputed();
+        EnsureSession(); _session!.RunToEnd(); CurrentStep = _session.CurrentStep; CurrentBackwardStep = null; RefreshComputed();
     }
 
     private void Step()
     {
-        if (_session?.IsCompleted == true)
-            ResetExecution(keepSelection: true);
-
-        EnsureSession();
-        CurrentStep = _session!.Step();
-        if (SelectedObject is null)
-            SelectedObject = (object?)CurrentStep?.Connection ?? CurrentStep?.Neuron;
+        if (_session?.IsCompleted == true) ResetExecution(true);
+        EnsureSession(); CurrentStep = _session!.Step(); CurrentBackwardStep = null;
+        if (SelectedObject is null) SelectedObject = (object?)CurrentStep?.Connection ?? CurrentStep?.Neuron;
         RefreshComputed();
     }
 
-    private void Reset() => ResetExecution(keepSelection: false);
+    private bool EnsureForwardCompleted()
+    {
+        if (_session?.IsCompleted == true) return true;
+        Run();
+        return _session?.IsCompleted == true;
+    }
+
+    private void EnsureBackward()
+    {
+        if (_backwardSession is not null) return;
+        if (!EnsureForwardCompleted()) return;
+        _backwardSession = Network.BeginBackward(Target);
+        BackwardTrace.Clear();
+    }
+
+    private void StepBackward()
+    {
+        EnsureBackward();
+        var step = _backwardSession?.Step();
+        if (step is null) return;
+        BackwardTrace.Add(step);
+        CurrentBackwardStep = step;
+        SelectedObject = (object?)step.Connection ?? step.Neuron;
+        RefreshComputed();
+    }
+
+    private void RunBackward()
+    {
+        EnsureBackward();
+        while (_backwardSession?.IsCompleted == false) StepBackward();
+    }
+
+    private void OptimizerStep()
+    {
+        EnsureBackward();
+        if (_backwardSession?.IsCompleted == false) RunBackward();
+        Network.ApplyGradients(LearningRate);
+        ResetExecution(true);
+    }
+
+    private void Reset() => ResetExecution(false);
+
+    private void ResetBackward()
+    {
+        _backwardSession = null;
+        BackwardTrace.Clear();
+        CurrentBackwardStep = null;
+        Network.Loss = null;
+        RefreshComputed();
+    }
 
     private void ResetExecution(bool keepSelection)
     {
         Network.ResetExecutionState();
-        _session = null;
-        CurrentStep = null;
+        _session = null; _backwardSession = null;
+        CurrentStep = null; CurrentBackwardStep = null;
+        BackwardTrace.Clear();
         if (!keepSelection) SelectedObject = null;
         RefreshComputed();
     }
@@ -194,20 +176,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void RefreshComputed()
     {
         RefreshWatches();
-        OnPropertyChanged(nameof(Trace));
-        OnPropertyChanged(nameof(OutputText));
-        OnPropertyChanged(nameof(StepStatus));
-        OnPropertyChanged(nameof(Formula));
-        OnPropertyChanged(nameof(Network));
-        OnPropertyChanged(nameof(SelectedObject));
+        OnPropertyChanged(nameof(Trace)); OnPropertyChanged(nameof(OutputText)); OnPropertyChanged(nameof(LossText));
+        OnPropertyChanged(nameof(StepStatus)); OnPropertyChanged(nameof(Formula)); OnPropertyChanged(nameof(Network));
+        OnPropertyChanged(nameof(SelectedObject)); OnPropertyChanged(nameof(SelectionText));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
+        field = value; OnPropertyChanged(propertyName); return true;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
