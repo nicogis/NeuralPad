@@ -85,6 +85,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="135"/>
                                 <RowDefinition Height="*"/>
+                                <RowDefinition Height="145"/>
                             </Grid.RowDefinitions>
                             <StackPanel Orientation="Horizontal" Margin="4">
                                 <Button Content="Train Sample" Command="{Binding TrainSampleCommand}" Padding="10,4" Margin="0,0,6,0"/>
@@ -113,6 +114,25 @@
                                                       MarkerVisible="True"/>
                                 </dxc:XYDiagram2D>
                             </dxc:ChartControl>
+                            <Grid Grid.Row="3" Margin="0,4,0,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="Breakpoints" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Content="+ Add" Command="{Binding AddBreakpointCommand}" Margin="10,0,4,0" Padding="8,2"/>
+                                    <Button Content="Remove" Command="{Binding RemoveBreakpointCommand}" Padding="8,2"/>
+                                    <TextBlock Text="{Binding BreakpointStatus}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Breakpoints}" SelectedItem="{Binding SelectedBreakpoint}">
+                                    <dxg:GridControl.Columns>
+                                        <dxg:GridColumn FieldName="IsEnabled" Header="On" Width="45"/>
+                                        <dxg:GridColumn FieldName="Kind" Header="Condition" Width="*"/>
+                                        <dxg:GridColumn FieldName="Expression" Header="Expression" Width="*"/>
+                                        <dxg:GridColumn FieldName="Threshold" Header="Value" Width="80"/>
+                                        <dxg:GridColumn FieldName="Status" Header="Status" Width="90" ReadOnly="True"/>
+                                    </dxg:GridControl.Columns>
+                                    <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Cell"/></dxg:GridControl.View>
+                                </dxg:GridControl>
+                            </Grid>
                         </Grid>
                     </dxdo:LayoutPanel>
 
