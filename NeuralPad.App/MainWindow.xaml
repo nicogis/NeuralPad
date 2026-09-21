@@ -44,7 +44,7 @@
             <dxdo:LayoutGroup Orientation="Horizontal">
                 <dxdo:LayoutGroup Orientation="Vertical" ItemWidth="300">
                 <dxdo:LayoutPanel Caption="Forward Trace">
-                    <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep}">
+                    <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep, Mode=OneWay}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="4">
@@ -56,7 +56,7 @@
                     </ListBox>
                 </dxdo:LayoutPanel>
                 <dxdo:LayoutPanel Caption="Backward Trace">
-                    <ListBox ItemsSource="{Binding BackwardTrace}" SelectedItem="{Binding CurrentBackwardStep}">
+                    <ListBox ItemsSource="{Binding BackwardTrace}" SelectedItem="{Binding CurrentBackwardStep, Mode=OneWay}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="4">

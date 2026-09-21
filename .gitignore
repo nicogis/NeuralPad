@@ -1,0 +1,42 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+artifacts/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# .NET
+*.nupkg
+*.snupkg
+project.assets.json
+project.nuget.cache
+*.dll
+*.pdb
+
+# Test results
+TestResults/
+*.trx
+coverage/
+coverage.cobertura.xml
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / local config
+.env
+.env.*
+*.local

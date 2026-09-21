@@ -292,7 +292,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _backwardSession = null;
         BackwardTrace.Clear();
         CurrentBackwardStep = null;
-        Network.Loss = null;
+        Network.ResetBackwardState();
         RefreshComputed();
     }
 

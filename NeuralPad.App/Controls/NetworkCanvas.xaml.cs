@@ -4,10 +4,15 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using NeuralPad.Core;
+using WpfPoint = System.Windows.Point;
+using WpfUserControl = System.Windows.Controls.UserControl;
+using WpfBrushes = System.Windows.Media.Brushes;
+using WpfColor = System.Windows.Media.Color;
+using WpfCursors = System.Windows.Input.Cursors;
 
 namespace NeuralPad.App.Controls;
 
-public partial class NetworkCanvas : UserControl
+public partial class NetworkCanvas : WpfUserControl
 {
     public static readonly DependencyProperty NetworkProperty = DependencyProperty.Register(
         nameof(Network), typeof(NeuralNetwork), typeof(NetworkCanvas),
@@ -65,7 +70,7 @@ public partial class NetworkCanvas : UserControl
         PART_Canvas.Children.Clear();
         var width = Math.Max(300, ActualWidth - 40);
         var height = Math.Max(300, ActualHeight - 40);
-        var positions = new Dictionary<Neuron, Point>();
+        var positions = new Dictionary<Neuron, WpfPoint>();
 
         for (var l = 0; l < Network.Layers.Count; l++)
         {
@@ -74,7 +79,7 @@ public partial class NetworkCanvas : UserControl
             for (var n = 0; n < layer.Neurons.Count; n++)
             {
                 var y = (n + 1) * (height / (layer.Neurons.Count + 1));
-                positions[layer.Neurons[n]] = new Point(x, y);
+                positions[layer.Neurons[n]] = new WpfPoint(x, y);
             }
         }
 
@@ -90,9 +95,9 @@ public partial class NetworkCanvas : UserControl
             var hitLine = new Line
             {
                 X1 = from.X, Y1 = from.Y, X2 = to.X, Y2 = to.Y,
-                Stroke = Brushes.Transparent,
+                Stroke = WpfBrushes.Transparent,
                 StrokeThickness = 14,
-                Cursor = Cursors.Hand,
+                Cursor = WpfCursors.Hand,
                 Tag = connection
             };
             hitLine.MouseLeftButtonDown += SelectGraphObject;
@@ -101,11 +106,11 @@ public partial class NetworkCanvas : UserControl
             var line = new Line
             {
                 X1 = from.X, Y1 = from.Y, X2 = to.X, Y2 = to.Y,
-                Stroke = selected ? Brushes.White :
-                    backwardActive ? Brushes.MediumPurple :
-                    forwardActive ? Brushes.Gold :
-                    !executed ? Brushes.DimGray :
-                    connection.Weight >= 0 ? Brushes.DodgerBlue : Brushes.IndianRed,
+                Stroke = selected ? WpfBrushes.White :
+                    backwardActive ? WpfBrushes.MediumPurple :
+                    forwardActive ? WpfBrushes.Gold :
+                    !executed ? WpfBrushes.DimGray :
+                    connection.Weight >= 0 ? WpfBrushes.DodgerBlue : WpfBrushes.IndianRed,
                 StrokeThickness = selected ? 6 : backwardActive || forwardActive ? 5 : 1.2 + Math.Min(4, Math.Abs(connection.Weight) * 3),
                 Opacity = selected || backwardActive || forwardActive ? 1 : executed ? 0.75 : 0.25,
                 IsHitTestVisible = false
@@ -127,15 +132,15 @@ public partial class NetworkCanvas : UserControl
             var ellipse = new Ellipse
             {
                 Width = 58, Height = 58,
-                Fill = backwardActive ? Brushes.MediumPurple :
-                    forwardActive ? Brushes.Gold :
-                    neuron.HasValue ? Brushes.SlateGray : Brushes.Black,
-                Stroke = selected ? Brushes.White :
-                    backwardActive ? Brushes.Plum :
-                    forwardActive ? Brushes.Gold :
-                    neuron.HasValue ? Brushes.White : Brushes.DimGray,
+                Fill = backwardActive ? WpfBrushes.MediumPurple :
+                    forwardActive ? WpfBrushes.Gold :
+                    neuron.HasValue ? WpfBrushes.SlateGray : WpfBrushes.Black,
+                Stroke = selected ? WpfBrushes.White :
+                    backwardActive ? WpfBrushes.Plum :
+                    forwardActive ? WpfBrushes.Gold :
+                    neuron.HasValue ? WpfBrushes.White : WpfBrushes.DimGray,
                 StrokeThickness = selected ? 5 : backwardActive || forwardActive ? 3 : 1.5,
-                Cursor = Cursors.Hand,
+                Cursor = WpfCursors.Hand,
                 Tag = neuron,
                 ToolTip = BuildNeuronTooltip(neuron)
             };
@@ -151,7 +156,7 @@ public partial class NetworkCanvas : UserControl
                 Text = CurrentBackwardStep is not null
                     ? $"{neuron.Name}\n{valueText}\n{deltaText}"
                     : $"{neuron.Name}\n{valueText}",
-                Foreground = Brushes.White,
+                Foreground = WpfBrushes.White,
                 TextAlignment = TextAlignment.Center,
                 Width = 82,
                 IsHitTestVisible = false,
@@ -163,19 +168,19 @@ public partial class NetworkCanvas : UserControl
         }
     }
 
-    private void DrawConnectionLabel(Connection connection, Point from, Point to)
+    private void DrawConnectionLabel(Connection connection, WpfPoint from, WpfPoint to)
     {
         if (!connection.HasContribution && !connection.HasGradient) return;
 
-        var mid = new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2);
+        var mid = new WpfPoint((from.X + to.X) / 2, (from.Y + to.Y) / 2);
         var parts = new List<string> { $"w {connection.Weight:0.###}" };
         if (connection.HasContribution) parts.Add($"xw {connection.Contribution:0.###}");
         if (connection.HasGradient) parts.Add($"dw {connection.Gradient:0.###}");
 
         var border = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(210, 24, 26, 32)),
-            BorderBrush = connection.HasGradient ? Brushes.MediumPurple : Brushes.DimGray,
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(210, 24, 26, 32)),
+            BorderBrush = connection.HasGradient ? WpfBrushes.MediumPurple : WpfBrushes.DimGray,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(4, 2, 4, 2),
@@ -183,7 +188,7 @@ public partial class NetworkCanvas : UserControl
             Child = new TextBlock
             {
                 Text = string.Join(" | ", parts),
-                Foreground = Brushes.White,
+                Foreground = WpfBrushes.White,
                 FontSize = 10
             }
         };
@@ -193,7 +198,7 @@ public partial class NetworkCanvas : UserControl
         PART_Canvas.Children.Add(border);
     }
 
-    private void DrawBackwardArrow(Point from, Point to)
+    private void DrawBackwardArrow(WpfPoint from, WpfPoint to)
     {
         // Arrow head points from target back toward source.
         var dx = from.X - to.X;
@@ -206,20 +211,20 @@ public partial class NetworkCanvas : UserControl
         var px = -uy;
         var py = ux;
 
-        var center = new Point(
+        var center = new WpfPoint(
             to.X + dx * 0.35,
             to.Y + dy * 0.35);
 
         const double size = 10;
-        var tip = new Point(center.X + ux * size, center.Y + uy * size);
-        var left = new Point(center.X - ux * size * 0.6 + px * size * 0.7, center.Y - uy * size * 0.6 + py * size * 0.7);
-        var right = new Point(center.X - ux * size * 0.6 - px * size * 0.7, center.Y - uy * size * 0.6 - py * size * 0.7);
+        var tip = new WpfPoint(center.X + ux * size, center.Y + uy * size);
+        var left = new WpfPoint(center.X - ux * size * 0.6 + px * size * 0.7, center.Y - uy * size * 0.6 + py * size * 0.7);
+        var right = new WpfPoint(center.X - ux * size * 0.6 - px * size * 0.7, center.Y - uy * size * 0.6 - py * size * 0.7);
 
         var arrow = new Polygon
         {
             Points = new PointCollection { tip, left, right },
-            Fill = Brushes.MediumPurple,
-            Stroke = Brushes.White,
+            Fill = WpfBrushes.MediumPurple,
+            Stroke = WpfBrushes.White,
             StrokeThickness = 1,
             IsHitTestVisible = false
         };

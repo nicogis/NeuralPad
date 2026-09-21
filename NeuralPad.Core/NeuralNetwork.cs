@@ -44,18 +44,8 @@ public sealed class NeuralNetwork
         if (target is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(target), "BCE target must be between 0 and 1.");
 
-        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
-        {
-            neuron.Delta = 0;
-            neuron.BiasGradient = 0;
-            neuron.HasGradient = false;
-        }
-        foreach (var connection in Connections)
-        {
-            connection.Gradient = 0;
-            connection.HasGradient = false;
-        }
-        Loss = null;
+        ResetBackwardState();
+
         return new BackwardSession(this, target);
     }
 
@@ -102,5 +92,23 @@ public sealed class NeuralNetwork
         network.FullyConnect(hidden, output, (i, _) => outputWeights[i]);
         output.Neurons[0].Bias = 0.15;
         return network;
+    }
+
+    public void ResetBackwardState()
+    {
+        foreach (var neuron in Layers.SelectMany(l => l.Neurons))
+        {
+            neuron.Delta = 0;
+            neuron.BiasGradient = 0;
+            neuron.HasGradient = false;
+        }
+
+        foreach (var connection in Connections)
+        {
+            connection.Gradient = 0;
+            connection.HasGradient = false;
+        }
+
+        Loss = null;
     }
 }
