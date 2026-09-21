@@ -70,7 +70,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<WatchItem> Watches { get; }
     public ObservableCollection<TrainingSample> TrainingSamples { get; }
     public ObservableCollection<TrainingPoint> TrainingHistory { get; } = [];
-    public ObservableCollection<TrainingBreakpoint> Breakpoints { get; };
+    public ObservableCollection<TrainingBreakpoint> Breakpoints { get; }
 
     private TrainingBreakpoint? _selectedBreakpoint;
     public TrainingBreakpoint? SelectedBreakpoint
