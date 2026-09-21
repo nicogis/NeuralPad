@@ -20,6 +20,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private TrainingSample? _selectedTrainingSample;
     private int _epoch;
     private int _sampleIndex;
+    private int _snapshotNumber;
 
     public MainViewModel()
     {
@@ -58,6 +59,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ResetTrainingCommand = new RelayCommand(ResetTrainingHistory);
         AddBreakpointCommand = new RelayCommand(AddBreakpoint);
         RemoveBreakpointCommand = new RelayCommand(RemoveSelectedBreakpoint, () => SelectedBreakpoint is not null);
+        CaptureSnapshotCommand = new RelayCommand(CaptureSnapshot);
+        CompareSnapshotsCommand = new RelayCommand(CompareSnapshots, () => SnapshotFrom is not null && SnapshotTo is not null);
+        RemoveSnapshotCommand = new RelayCommand(RemoveSelectedSnapshot, () => SelectedSnapshot is not null);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
         Reset();
@@ -71,6 +75,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<TrainingSample> TrainingSamples { get; }
     public ObservableCollection<TrainingPoint> TrainingHistory { get; } = [];
     public ObservableCollection<TrainingBreakpoint> Breakpoints { get; }
+    public ObservableCollection<ParameterSnapshot> Snapshots { get; } = [];
+    public ObservableCollection<ParameterDelta> SnapshotComparison { get; } = [];
 
     private TrainingBreakpoint? _selectedBreakpoint;
     public TrainingBreakpoint? SelectedBreakpoint
@@ -78,6 +84,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _selectedBreakpoint;
         set { if (SetField(ref _selectedBreakpoint, value) && RemoveBreakpointCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
     }
+
+    private ParameterSnapshot? _selectedSnapshot;
+    private ParameterSnapshot? _snapshotFrom;
+    private ParameterSnapshot? _snapshotTo;
+    public ParameterSnapshot? SelectedSnapshot
+    {
+        get => _selectedSnapshot;
+        set { if (SetField(ref _selectedSnapshot, value) && RemoveSnapshotCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
+    }
+    public ParameterSnapshot? SnapshotFrom
+    {
+        get => _snapshotFrom;
+        set { if (SetField(ref _snapshotFrom, value) && CompareSnapshotsCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
+    }
+    public ParameterSnapshot? SnapshotTo
+    {
+        get => _snapshotTo;
+        set { if (SetField(ref _snapshotTo, value) && CompareSnapshotsCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
+    }
+    public string SnapshotStatus => SnapshotComparison.Count == 0 ? "Capture two snapshots to compare parameters." :
+        $"{SnapshotComparison.Count} parameters | total |delta| = {SnapshotComparison.Sum(x => x.AbsoluteDelta):0.######}";
 
     public string BreakpointStatus { get => _breakpointStatus; private set => SetField(ref _breakpointStatus, value); }
 
@@ -143,6 +170,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand ResetTrainingCommand { get; }
     public ICommand AddBreakpointCommand { get; }
     public ICommand RemoveBreakpointCommand { get; }
+    public ICommand CaptureSnapshotCommand { get; }
+    public ICommand CompareSnapshotsCommand { get; }
+    public ICommand RemoveSnapshotCommand { get; }
     public ICommand AddWatchCommand { get; }
     public ICommand RemoveWatchCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -286,6 +316,55 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (SelectedBreakpoint is null) return;
         Breakpoints.Remove(SelectedBreakpoint);
         SelectedBreakpoint = null;
+    }
+
+    private void CaptureSnapshot()
+    {
+        var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var connection in Network.Connections)
+            values[$"W({connection.From.Name},{connection.To.Name})"] = connection.Weight;
+        foreach (var neuron in Network.Layers.Skip(1).SelectMany(l => l.Neurons))
+            values[$"B({neuron.Name})"] = neuron.Bias;
+
+        var snapshot = new ParameterSnapshot
+        {
+            Name = $"S{++_snapshotNumber}",
+            Epoch = Epoch,
+            CreatedAt = DateTime.Now,
+            Values = values
+        };
+        Snapshots.Add(snapshot);
+        SelectedSnapshot = snapshot;
+        if (SnapshotFrom is null) SnapshotFrom = snapshot;
+        else SnapshotTo = snapshot;
+        OnPropertyChanged(nameof(SnapshotStatus));
+    }
+
+    private void CompareSnapshots()
+    {
+        SnapshotComparison.Clear();
+        if (SnapshotFrom is null || SnapshotTo is null) return;
+
+        foreach (var parameter in SnapshotFrom.Values.Keys.Union(SnapshotTo.Values.Keys).OrderBy(x => x))
+        {
+            if (!SnapshotFrom.Values.TryGetValue(parameter, out var from) ||
+                !SnapshotTo.Values.TryGetValue(parameter, out var to))
+                continue;
+            SnapshotComparison.Add(new ParameterDelta(parameter, from, to, to - from, Math.Abs(to - from)));
+        }
+        OnPropertyChanged(nameof(SnapshotStatus));
+    }
+
+    private void RemoveSelectedSnapshot()
+    {
+        if (SelectedSnapshot is null) return;
+        var removed = SelectedSnapshot;
+        Snapshots.Remove(removed);
+        if (ReferenceEquals(SnapshotFrom, removed)) SnapshotFrom = null;
+        if (ReferenceEquals(SnapshotTo, removed)) SnapshotTo = null;
+        SelectedSnapshot = null;
+        SnapshotComparison.Clear();
+        OnPropertyChanged(nameof(SnapshotStatus));
     }
 
     private void TrainOne(TrainingSample sample)
