@@ -136,6 +136,44 @@
                         </Grid>
                     </dxdo:LayoutPanel>
 
+                    <dxdo:LayoutPanel Caption="Snapshots / Compare" ItemHeight="260">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="90"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Margin="4">
+                                <Button Content="Capture Snapshot" Command="{Binding CaptureSnapshotCommand}" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Remove" Command="{Binding RemoveSnapshotCommand}" Padding="10,4" Margin="0,0,12,0"/>
+                                <TextBlock Text="From" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="120" ItemsSource="{Binding Snapshots}" SelectedItem="{Binding SnapshotFrom}" Margin="0,0,8,0"/>
+                                <TextBlock Text="To" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="120" ItemsSource="{Binding Snapshots}" SelectedItem="{Binding SnapshotTo}" Margin="0,0,8,0"/>
+                                <Button Content="Compare" Command="{Binding CompareSnapshotsCommand}" Padding="10,4"/>
+                                <TextBlock Text="{Binding SnapshotStatus}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            </StackPanel>
+                            <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Snapshots}" SelectedItem="{Binding SelectedSnapshot}">
+                                <dxg:GridControl.Columns>
+                                    <dxg:GridColumn FieldName="Name" Header="Snapshot" Width="*"/>
+                                    <dxg:GridColumn FieldName="Epoch" Header="Epoch" Width="70"/>
+                                    <dxg:GridColumn FieldName="CreatedAt" Header="Created" Width="150"/>
+                                </dxg:GridControl.Columns>
+                                <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Row"/></dxg:GridControl.View>
+                            </dxg:GridControl>
+                            <dxg:GridControl Grid.Row="2" ItemsSource="{Binding SnapshotComparison}">
+                                <dxg:GridControl.Columns>
+                                    <dxg:GridColumn FieldName="Parameter" Header="Parameter" Width="*"/>
+                                    <dxg:GridColumn FieldName="FromValue" Header="From" Width="100" DisplayFormat="0.000000"/>
+                                    <dxg:GridColumn FieldName="ToValue" Header="To" Width="100" DisplayFormat="0.000000"/>
+                                    <dxg:GridColumn FieldName="Delta" Header="Δ" Width="100" DisplayFormat="+0.000000;-0.000000;0.000000"/>
+                                    <dxg:GridColumn FieldName="AbsoluteDelta" Header="|Δ|" Width="100" DisplayFormat="0.000000"/>
+                                </dxg:GridControl.Columns>
+                                <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Row"/></dxg:GridControl.View>
+                            </dxg:GridControl>
+                        </Grid>
+                    </dxdo:LayoutPanel>
+
                     <dxdo:LayoutPanel Caption="Watch" ItemHeight="230">
                         <Grid>
                             <Grid.RowDefinitions>
