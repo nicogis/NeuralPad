@@ -15,6 +15,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private ForwardSession? _session;
     private BackwardSession? _backwardSession;
     private readonly WatchEvaluator _watchEvaluator;
+    private readonly BreakpointEvaluator _breakpointEvaluator;
+    private string _breakpointStatus = "No breakpoint hit";
     private TrainingSample? _selectedTrainingSample;
     private int _epoch;
     private int _sampleIndex;
@@ -23,6 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         Network = NeuralNetwork.CreateDemo();
         _watchEvaluator = new WatchEvaluator(Network);
+        _breakpointEvaluator = new BreakpointEvaluator(Network);
         foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons)) neuron.PropertyChanged += ParameterChanged;
         foreach (var connection in Network.Connections) connection.PropertyChanged += ParameterChanged;
 
@@ -35,6 +38,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new(1, 1, 0)
         ];
         SelectedTrainingSample = TrainingSamples[0];
+        Breakpoints =
+        [
+            new() { Kind = TrainingBreakpointKind.LossBelow, Threshold = 0.10, IsEnabled = false },
+            new() { Kind = TrainingBreakpointKind.GradientAbove, Threshold = 1.00, IsEnabled = false },
+            new() { Kind = TrainingBreakpointKind.WeightAbove, Expression = "W(H1,O1)", Threshold = 2.00, IsEnabled = false },
+            new() { Kind = TrainingBreakpointKind.EpochEquals, Threshold = 10, IsEnabled = false }
+        ];
 
         RunCommand = new RelayCommand(Run);
         StepCommand = new RelayCommand(Step);
@@ -46,6 +56,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         TrainEpochCommand = new RelayCommand(TrainEpoch);
         LoadTrainingSampleCommand = new RelayCommand(LoadSelectedTrainingSample, () => SelectedTrainingSample is not null);
         ResetTrainingCommand = new RelayCommand(ResetTrainingHistory);
+        AddBreakpointCommand = new RelayCommand(AddBreakpoint);
+        RemoveBreakpointCommand = new RelayCommand(RemoveSelectedBreakpoint, () => SelectedBreakpoint is not null);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
         Reset();
@@ -58,6 +70,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<WatchItem> Watches { get; }
     public ObservableCollection<TrainingSample> TrainingSamples { get; }
     public ObservableCollection<TrainingPoint> TrainingHistory { get; } = [];
+    public ObservableCollection<TrainingBreakpoint> Breakpoints { get; };
+
+    private TrainingBreakpoint? _selectedBreakpoint;
+    public TrainingBreakpoint? SelectedBreakpoint
+    {
+        get => _selectedBreakpoint;
+        set { if (SetField(ref _selectedBreakpoint, value) && RemoveBreakpointCommand is RelayCommand c) c.RaiseCanExecuteChanged(); }
+    }
+
+    public string BreakpointStatus { get => _breakpointStatus; private set => SetField(ref _breakpointStatus, value); }
 
     private WatchItem? _selectedWatch;
     public WatchItem? SelectedWatch
@@ -119,6 +141,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand TrainEpochCommand { get; }
     public ICommand LoadTrainingSampleCommand { get; }
     public ICommand ResetTrainingCommand { get; }
+    public ICommand AddBreakpointCommand { get; }
+    public ICommand RemoveBreakpointCommand { get; }
     public ICommand AddWatchCommand { get; }
     public ICommand RemoveWatchCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -189,8 +213,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void TrainSample()
     {
-        var sample = TrainingSamples[_sampleIndex];
+        var currentIndex = _sampleIndex;
+        var sample = TrainingSamples[currentIndex];
         TrainOne(sample);
+        if (CheckBreakpoints(currentIndex))
+        {
+            LoadSampleIntoDebugger(sample);
+            OnPropertyChanged(nameof(TrainingStatus));
+            return;
+        }
         _sampleIndex++;
         if (_sampleIndex >= TrainingSamples.Count)
         {
@@ -205,13 +236,56 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void TrainEpoch()
     {
-        foreach (var sample in TrainingSamples) TrainOne(sample);
+        for (var i = 0; i < TrainingSamples.Count; i++)
+        {
+            var sample = TrainingSamples[i];
+            TrainOne(sample);
+            _sampleIndex = i;
+            if (CheckBreakpoints(i))
+            {
+                EvaluateDataset();
+                LoadSampleIntoDebugger(sample);
+                OnPropertyChanged(nameof(TrainingStatus));
+                return;
+            }
+        }
         _sampleIndex = 0;
         Epoch++;
         EvaluateDataset();
         RecordEpochLoss();
         LoadSampleIntoDebugger(TrainingSamples[0]);
         OnPropertyChanged(nameof(TrainingStatus));
+    }
+
+    private bool CheckBreakpoints(int sampleIndex)
+    {
+        foreach (var bp in Breakpoints)
+        {
+            bp.Status = string.Empty;
+            if (_breakpointEvaluator.IsMatch(bp, Epoch, sampleIndex, out var reason))
+            {
+                bp.Status = "HIT";
+                BreakpointStatus = $"Breakpoint hit: {reason}";
+                SelectedBreakpoint = bp;
+                return true;
+            }
+        }
+        BreakpointStatus = "No breakpoint hit";
+        return false;
+    }
+
+    private void AddBreakpoint()
+    {
+        var bp = new TrainingBreakpoint { Kind = TrainingBreakpointKind.LossBelow, Threshold = 0.10 };
+        Breakpoints.Add(bp);
+        SelectedBreakpoint = bp;
+    }
+
+    private void RemoveSelectedBreakpoint()
+    {
+        if (SelectedBreakpoint is null) return;
+        Breakpoints.Remove(SelectedBreakpoint);
+        SelectedBreakpoint = null;
     }
 
     private void TrainOne(TrainingSample sample)
@@ -281,6 +355,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Epoch = 0;
         _sampleIndex = 0;
         TrainingHistory.Clear();
+        BreakpointStatus = "No breakpoint hit";
         EvaluateDataset();
         OnPropertyChanged(nameof(TrainingStatus));
     }
