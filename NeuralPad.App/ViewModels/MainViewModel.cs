@@ -21,6 +21,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private int _epoch;
     private int _sampleIndex;
     private int _snapshotNumber;
+    private string _optimizerStatus = "Optimizer not executed";
 
     public MainViewModel()
     {
@@ -106,6 +107,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string SnapshotStatus => SnapshotComparison.Count == 0 ? "Capture two snapshots to compare parameters." :
         $"{SnapshotComparison.Count} parameters | total |delta| = {SnapshotComparison.Sum(x => x.AbsoluteDelta):0.######}";
 
+    public string OptimizerStatus { get => _optimizerStatus; private set => SetField(ref _optimizerStatus, value); }
+
     public string BreakpointStatus { get => _breakpointStatus; private set => SetField(ref _breakpointStatus, value); }
 
     private WatchItem? _selectedWatch;
@@ -154,7 +157,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         : _session?.IsCompleted == true ? $"Forward completed: {Trace.Count} steps"
         : $"Forward {CurrentStep.Sequence}: {CurrentStep.Title}";
 
-    public string Formula => CurrentBackwardStep?.Formula ?? CurrentStep?.Formula ?? "The network has not executed any operation yet.";
+    public string Formula => Network.Connections.Any(x => x.HasOptimizerUpdate)
+        ? OptimizerStatus
+        : CurrentBackwardStep?.Formula ?? CurrentStep?.Formula ?? "The network has not executed any operation yet.";
     public string OutputText => Network.Layers[^1].Neurons[0] is { HasValue: true } o ? o.Activation.ToString("0.000000") : "—";
     public string LossText => Network.Loss?.ToString("0.000000") ?? "—";
 
@@ -237,8 +242,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         EnsureBackward();
         if (_backwardSession?.IsCompleted == false) RunBackward();
         ApplyGradientsWithoutInvalidation();
-        ResetExecution(true);
-        EvaluateDataset();
+
+        var updates = Network.Connections.Where(x => x.HasOptimizerUpdate).ToArray();
+        var maxUpdate = updates.Select(x => Math.Abs(x.WeightUpdate)).DefaultIfEmpty(0).Max();
+        OptimizerStatus = $"Optimizer applied | LR={LearningRate:0.######} | max |Δw|={maxUpdate:0.######}";
+        CurrentBackwardStep = null;
+        OnPropertyChanged(nameof(Formula));
+        RefreshComputed();
     }
 
     private void TrainSample()
