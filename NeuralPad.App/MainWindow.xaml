@@ -40,35 +40,8 @@
             </StackPanel>
         </Border>
 
-        <dxdo:DockLayoutManager Grid.Row="1" DockingStyle="VS2010">
+        <dxdo:DockLayoutManager Grid.Row="1" DockingStyle="VS2010" ClosedPanelsBarVisibility="Auto">
             <dxdo:LayoutGroup Orientation="Horizontal">
-                <dxdo:LayoutGroup Orientation="Vertical" ItemWidth="300">
-                <dxdo:LayoutPanel Caption="Forward Trace">
-                    <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep, Mode=OneWay}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="4">
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Formula}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </dxdo:LayoutPanel>
-                <dxdo:LayoutPanel Caption="Backward Trace">
-                    <ListBox ItemsSource="{Binding BackwardTrace}" SelectedItem="{Binding CurrentBackwardStep, Mode=OneWay}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="4">
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Formula}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </dxdo:LayoutPanel>
-                </dxdo:LayoutGroup>
-
                 <dxdo:LayoutGroup Orientation="Vertical">
                     <dxdo:DocumentGroup>
                         <dxdo:DocumentPanel Caption="Network" AllowClose="False">
@@ -79,7 +52,8 @@
                         </dxdo:DocumentPanel>
                     </dxdo:DocumentGroup>
 
-                    <dxdo:LayoutPanel Caption="Training / XOR" ItemHeight="310">
+                    <dxdo:TabbedGroup ItemHeight="310">
+                    <dxdo:LayoutPanel Caption="Training / XOR">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -125,8 +99,9 @@
                                 <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Breakpoints}" SelectedItem="{Binding SelectedBreakpoint}">
                                     <dxg:GridControl.Columns>
                                         <dxg:GridColumn FieldName="IsEnabled" Header="On" Width="45"/>
-                                        <dxg:GridColumn FieldName="Kind" Header="Condition" Width="*"/>
-                                        <dxg:GridColumn FieldName="Expression" Header="Expression" Width="*"/>
+                                        <dxg:GridColumn FieldName="ConditionText" Header="Condition" Width="2*" ReadOnly="True"/>
+                                        <dxg:GridColumn FieldName="Kind" Header="Type" Width="*"/>
+                                        <dxg:GridColumn FieldName="Expression" Header="Parameter" Width="*"/>
                                         <dxg:GridColumn FieldName="Threshold" Header="Value" Width="80"/>
                                         <dxg:GridColumn FieldName="Status" Header="Status" Width="90" ReadOnly="True"/>
                                     </dxg:GridControl.Columns>
@@ -136,7 +111,7 @@
                         </Grid>
                     </dxdo:LayoutPanel>
 
-                    <dxdo:LayoutPanel Caption="Snapshots / Compare" ItemHeight="260">
+                    <dxdo:LayoutPanel Caption="Snapshots / Compare">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -194,7 +169,7 @@
                         </Grid>
                     </dxdo:LayoutPanel>
 
-                    <dxdo:LayoutPanel Caption="Watch" ItemHeight="230">
+                    <dxdo:LayoutPanel Caption="Watch">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -218,6 +193,33 @@
                             </dxg:GridControl>
                         </Grid>
                     </dxdo:LayoutPanel>
+
+                    <dxdo:LayoutPanel Caption="Forward Trace">
+                        <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep, Mode=OneWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="4">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Formula}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </dxdo:LayoutPanel>
+
+                    <dxdo:LayoutPanel Caption="Backward Trace">
+                        <ListBox ItemsSource="{Binding BackwardTrace}" SelectedItem="{Binding CurrentBackwardStep, Mode=OneWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="4">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Formula}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </dxdo:LayoutPanel>
+                    </dxdo:TabbedGroup>
                 </dxdo:LayoutGroup>
 
                 <dxdo:LayoutPanel Caption="Inspector" ItemWidth="320">
