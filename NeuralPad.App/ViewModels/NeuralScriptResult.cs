@@ -4,7 +4,6 @@ namespace NeuralPad.App.ViewModels;
 
 public sealed record NeuralScriptResult(
     NeuralNetwork Network,
-    double X1,
-    double X2,
+    IReadOnlyList<double> Inputs,
     double Target,
     double LearningRate);
