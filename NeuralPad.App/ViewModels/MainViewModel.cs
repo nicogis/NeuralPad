@@ -9,7 +9,7 @@ namespace NeuralPad.App.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private object? _selectedObject;
-    private double _target = 1.0, _learningRate = 0.10;
+    private double _learningRate = 0.10;
     private ForwardStep? _currentStep;
     private BackwardStep? _currentBackwardStep;
     private ForwardSession? _session;
@@ -42,6 +42,8 @@ var net = Neural.Network(2)
 
         Inputs = [];
         SetInputs([0.80, 0.35]);
+        Targets = [];
+        SetTargets([1.0]);
 
         Watches = [CreateWatch("H1.Activation"), CreateWatch("O1.Z"), CreateWatch("O1.Activation"), CreateWatch("W(H1,O1)")];
         TrainingSamples =
@@ -86,6 +88,7 @@ var net = Neural.Network(2)
     public IReadOnlyList<ForwardStep> Trace => Network.LastTrace;
     public ObservableCollection<BackwardStep> BackwardTrace { get; } = [];
     public ObservableCollection<NetworkInputValue> Inputs { get; }
+    public ObservableCollection<NetworkInputValue> Targets { get; }
     public ObservableCollection<WatchItem> Watches { get; }
     public ObservableCollection<TrainingSample> TrainingSamples { get; }
     public ObservableCollection<TrainingPoint> TrainingHistory { get; } = [];
@@ -147,7 +150,6 @@ var net = Neural.Network(2)
 
     public int Epoch { get => _epoch; private set => SetField(ref _epoch, value); }
     public string TrainingStatus => $"Epoch {Epoch} | next sample {_sampleIndex + 1}/{TrainingSamples.Count}";
-    public double Target { get => _target; set { if (SetField(ref _target, Math.Clamp(value, 0, 1))) ResetBackward(); } }
     public double LearningRate { get => _learningRate; set => SetField(ref _learningRate, Math.Max(0, value)); }
 
     public ForwardStep? CurrentStep { get => _currentStep; private set => SetField(ref _currentStep, value); }
@@ -175,7 +177,15 @@ var net = Neural.Network(2)
     public string Formula => Network.Connections.Any(x => x.HasOptimizerUpdate)
         ? OptimizerStatus
         : CurrentBackwardStep?.Formula ?? CurrentStep?.Formula ?? "The network has not executed any operation yet.";
-    public string OutputText => Network.Layers[^1].Neurons[0] is { HasValue: true } o ? o.Activation.ToString("0.000000") : "—";
+    public string OutputText
+    {
+        get
+        {
+            var outputs = Network.Layers[^1].Neurons;
+            if (outputs.Any(x => !x.HasValue)) return "—";
+            return string.Join("  ", outputs.Select(x => $"{x.Name}={x.Activation:0.000000}"));
+        }
+    }
     public string LossText => Network.Loss?.ToString("0.000000") ?? "—";
 
     public ICommand RunCommand { get; }
@@ -219,7 +229,7 @@ var net = Neural.Network(2)
                 connection.PropertyChanged += ParameterChanged;
 
             SetInputs(result.Inputs);
-            _target = result.Target;
+            SetTargets(result.Targets);
             _learningRate = result.LearningRate;
             SelectedObject = null;
             _session = null;
@@ -234,7 +244,6 @@ var net = Neural.Network(2)
             _sampleIndex = 0;
 
             OnPropertyChanged(nameof(Network));
-            OnPropertyChanged(nameof(Target));
             OnPropertyChanged(nameof(LearningRate));
             OnPropertyChanged(nameof(Trace));
             OnPropertyChanged(nameof(TrainingStatus));
@@ -269,7 +278,29 @@ var net = Neural.Network(2)
             ResetExecution(true);
     }
 
+    private void SetTargets(IEnumerable<double> values)
+    {
+        foreach (var target in Targets)
+            target.PropertyChanged -= TargetChanged;
+
+        Targets.Clear();
+        var index = 1;
+        foreach (var value in values)
+        {
+            var target = new NetworkInputValue($"Y{index++}", Math.Clamp(value, 0, 1));
+            target.PropertyChanged += TargetChanged;
+            Targets.Add(target);
+        }
+    }
+
+    private void TargetChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(NetworkInputValue.Value))
+            ResetBackward();
+    }
+
     private double[] CurrentInputs() => Inputs.Select(x => x.Value).ToArray();
+    private double[] CurrentTargets() => Targets.Select(x => Math.Clamp(x.Value, 0, 1)).ToArray();
 
     private WatchItem CreateWatch(string expression) { var x = new WatchItem(expression); x.PropertyChanged += WatchChanged; return x; }
     private void AddWatch() { var x = CreateWatch("H1.Activation"); Watches.Add(x); SelectedWatch = x; RefreshWatches(); }
@@ -305,7 +336,7 @@ var net = Neural.Network(2)
     {
         if (_backwardSession is not null) return;
         if (!EnsureForwardCompleted()) return;
-        _backwardSession = Network.BeginBackward(Target);
+        _backwardSession = Network.BeginBackward(CurrentTargets());
         BackwardTrace.Clear();
     }
 
@@ -468,7 +499,7 @@ var net = Neural.Network(2)
 
     private void TrainOne(TrainingSample sample)
     {
-        if (Network.Layers[0].Neurons.Count != 2)
+        if (Network.Layers[0].Neurons.Count != 2 || Network.Layers[^1].Neurons.Count != 1)
             throw new InvalidOperationException("XOR training is available only for networks with 2 inputs.");
 
         var forward = Network.BeginForward(sample.X1, sample.X2);
@@ -493,7 +524,7 @@ var net = Neural.Network(2)
 
     private void EvaluateDataset()
     {
-        if (Network.Layers[0].Neurons.Count != 2)
+        if (Network.Layers[0].Neurons.Count != 2 || Network.Layers[^1].Neurons.Count != 1)
         {
             foreach (var sample in TrainingSamples)
             {
@@ -544,8 +575,8 @@ var net = Neural.Network(2)
         if (Inputs.Count != 2) return;
         Inputs[0].Value = sample.X1;
         Inputs[1].Value = sample.X2;
-        _target = sample.Target;
-        OnPropertyChanged(nameof(Target));
+        if (Targets.Count == 1)
+            Targets[0].Value = sample.Target;
         ResetExecution(true);
     }
 
