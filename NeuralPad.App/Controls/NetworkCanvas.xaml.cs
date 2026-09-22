@@ -176,6 +176,8 @@ public partial class NetworkCanvas : WpfUserControl
         var parts = new List<string> { $"w {connection.Weight:0.###}" };
         if (connection.HasContribution) parts.Add($"xw {connection.Contribution:0.###}");
         if (connection.HasGradient) parts.Add($"dw {connection.Gradient:0.###}");
+        if (connection.HasOptimizerUpdate)
+            parts.Add($"{connection.WeightBeforeUpdate:0.###}→{connection.Weight:0.###} (Δ {connection.WeightUpdate:+0.###;-0.###;0})");
 
         var border = new Border
         {
@@ -251,6 +253,12 @@ public partial class NetworkCanvas : WpfUserControl
         {
             lines.Add($"Delta = {neuron.Delta:0.######}");
             lines.Add($"dL/db = {neuron.BiasGradient:0.######}");
+        }
+        if (neuron.HasOptimizerUpdate)
+        {
+            lines.Add($"Bias before = {neuron.BiasBeforeUpdate:0.######}");
+            lines.Add($"Δbias = {neuron.BiasUpdate:+0.######;-0.######;0}");
+            lines.Add($"Bias after = {neuron.Bias:0.######}");
         }
         else
             lines.Add("Backward: not executed");
