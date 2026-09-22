@@ -47,11 +47,9 @@ public static class NeuralScriptParser
         if (denseMatches.Count == 0)
             throw new InvalidOperationException("Add at least one Dense layer.");
 
-        var layerSpecs = denseMatches.Select(m => new
-        {
-            Count = int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture),
-            Activation = Enum.Parse<ActivationKind>(m.Groups["activation"].Value, true)
-        }).ToArray();
+        var layerSpecs = denseMatches.Select(m => new LayerSpec(
+            int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture),
+            Enum.Parse<ActivationKind>(m.Groups["activation"].Value, true))).ToArray();
 
         if (layerSpecs[^1].Count != 1 || layerSpecs[^1].Activation != ActivationKind.Sigmoid)
             throw new InvalidOperationException("The final layer must be Dense(1, Sigmoid) for BCE/backprop.");
@@ -74,7 +72,7 @@ public static class NeuralScriptParser
         return new NeuralScriptResult(network, x1, x2, target, learningRate);
     }
 
-    private static NeuralNetwork BuildNetwork(dynamic[] specs)
+    private static NeuralNetwork BuildNetwork(LayerSpec[] specs)
     {
         var network = new NeuralNetwork();
         var previous = network.AddLayer(2, "X", ActivationKind.Linear);
@@ -85,7 +83,7 @@ public static class NeuralScriptParser
             var spec = specs[index];
             var isOutput = index == specs.Length - 1;
             var prefix = isOutput ? "O" : HiddenPrefix(index);
-            var current = network.AddLayer((int)spec.Count, prefix, (ActivationKind)spec.Activation);
+            var current = network.AddLayer(spec.Count, prefix, spec.Activation);
 
             var fanIn = previous.Neurons.Count;
             var scale = Math.Sqrt(2.0 / Math.Max(1, fanIn));
@@ -105,6 +103,8 @@ public static class NeuralScriptParser
         3 => "L",
         _ => $"N{index}"
     };
+
+    private sealed record LayerSpec(int Count, ActivationKind Activation);
 
     private static double ParseDouble(string value) =>
         double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
