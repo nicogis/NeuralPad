@@ -14,14 +14,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private BackwardStep? _currentBackwardStep;
     private ForwardSession? _session;
     private BackwardSession? _backwardSession;
-    private readonly WatchEvaluator _watchEvaluator;
-    private readonly BreakpointEvaluator _breakpointEvaluator;
+    private WatchEvaluator _watchEvaluator;
+    private BreakpointEvaluator _breakpointEvaluator;
     private string _breakpointStatus = "No breakpoint hit";
     private TrainingSample? _selectedTrainingSample;
     private int _epoch;
     private int _sampleIndex;
     private int _snapshotNumber;
     private string _optimizerStatus = "Optimizer not executed";
+    private string _scriptText = """
+var net = Neural.Network(2)
+    .Dense(3, ReLU)
+    .Dense(1, Sigmoid)
+    .Input(0.80, 0.35)
+    .Target(1)
+    .LearningRate(0.10);
+""";
+    private string _scriptStatus = "Ready";
 
     public MainViewModel()
     {
@@ -65,11 +74,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RemoveSnapshotCommand = new RelayCommand(RemoveSelectedSnapshot, () => SelectedSnapshot is not null);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
+        ApplyScriptCommand = new RelayCommand(ApplyScript);
         Reset();
         EvaluateDataset();
     }
 
-    public NeuralNetwork Network { get; }
+    public NeuralNetwork Network { get; private set; }
     public IReadOnlyList<ForwardStep> Trace => Network.LastTrace;
     public ObservableCollection<BackwardStep> BackwardTrace { get; } = [];
     public ObservableCollection<WatchItem> Watches { get; }
@@ -106,6 +116,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     public string SnapshotStatus => SnapshotComparison.Count == 0 ? "Capture two snapshots to compare parameters." :
         $"{SnapshotComparison.Count} parameters | total |delta| = {SnapshotComparison.Sum(x => x.AbsoluteDelta):0.######}";
+
+    public string ScriptText { get => _scriptText; set => SetField(ref _scriptText, value); }
+    public string ScriptStatus { get => _scriptStatus; private set => SetField(ref _scriptStatus, value); }
 
     public string OptimizerStatus { get => _optimizerStatus; private set => SetField(ref _optimizerStatus, value); }
 
@@ -180,7 +193,61 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand RemoveSnapshotCommand { get; }
     public ICommand AddWatchCommand { get; }
     public ICommand RemoveWatchCommand { get; }
+    public ICommand ApplyScriptCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void ApplyScript()
+    {
+        try
+        {
+            var result = NeuralScriptParser.Parse(ScriptText);
+
+            foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
+                neuron.PropertyChanged -= ParameterChanged;
+            foreach (var connection in Network.Connections)
+                connection.PropertyChanged -= ParameterChanged;
+
+            Network = result.Network;
+            _watchEvaluator = new WatchEvaluator(Network);
+            _breakpointEvaluator = new BreakpointEvaluator(Network);
+
+            foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
+                neuron.PropertyChanged += ParameterChanged;
+            foreach (var connection in Network.Connections)
+                connection.PropertyChanged += ParameterChanged;
+
+            _x1 = result.X1;
+            _x2 = result.X2;
+            _target = result.Target;
+            _learningRate = result.LearningRate;
+            SelectedObject = null;
+            _session = null;
+            _backwardSession = null;
+            CurrentStep = null;
+            CurrentBackwardStep = null;
+            BackwardTrace.Clear();
+            TrainingHistory.Clear();
+            Snapshots.Clear();
+            SnapshotComparison.Clear();
+            Epoch = 0;
+            _sampleIndex = 0;
+
+            OnPropertyChanged(nameof(Network));
+            OnPropertyChanged(nameof(X1));
+            OnPropertyChanged(nameof(X2));
+            OnPropertyChanged(nameof(Target));
+            OnPropertyChanged(nameof(LearningRate));
+            OnPropertyChanged(nameof(Trace));
+            OnPropertyChanged(nameof(TrainingStatus));
+
+            RefreshComputed();
+            ScriptStatus = $"Applied: {Network.Layers.Count} layers, {Network.Connections.Count} connections";
+        }
+        catch (Exception ex)
+        {
+            ScriptStatus = $"Error: {ex.Message}";
+        }
+    }
 
     private WatchItem CreateWatch(string expression) { var x = new WatchItem(expression); x.PropertyChanged += WatchChanged; return x; }
     private void AddWatch() { var x = CreateWatch("H1.Activation"); Watches.Add(x); SelectedWatch = x; RefreshWatches(); }
