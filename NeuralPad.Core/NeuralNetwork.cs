@@ -52,10 +52,20 @@ public sealed class NeuralNetwork
     public void ApplyGradients(double learningRate)
     {
         foreach (var connection in Connections.Where(c => c.HasGradient))
-            connection.Weight -= learningRate * connection.Gradient;
+        {
+            connection.WeightBeforeUpdate = connection.Weight;
+            connection.WeightUpdate = -learningRate * connection.Gradient;
+            connection.HasOptimizerUpdate = true;
+            connection.Weight += connection.WeightUpdate;
+        }
 
         foreach (var neuron in Layers.Skip(1).SelectMany(l => l.Neurons).Where(n => n.HasGradient))
-            neuron.Bias -= learningRate * neuron.BiasGradient;
+        {
+            neuron.BiasBeforeUpdate = neuron.Bias;
+            neuron.BiasUpdate = -learningRate * neuron.BiasGradient;
+            neuron.HasOptimizerUpdate = true;
+            neuron.Bias += neuron.BiasUpdate;
+        }
     }
 
     public IReadOnlyList<ForwardStep> Forward(params double[] inputs)
