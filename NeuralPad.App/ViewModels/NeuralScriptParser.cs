@@ -7,23 +7,23 @@ namespace NeuralPad.App.ViewModels;
 public static class NeuralScriptParser
 {
     private static readonly Regex NetworkRegex = new(
-        @"Networks*(s*(?<inputs>d+)s*)",
+        @"Network\s*\(\s*(?<inputs>\d+)\s*\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex DenseRegex = new(
-        @".Denses*(s*(?<count>d+)s*,s*(?<activation>Linear|ReLU|Sigmoid|Tanh)s*)",
+        @"\.Dense\s*\(\s*(?<count>\d+)\s*,\s*(?<activation>Linear|ReLU|Sigmoid|Tanh)\s*\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex InputRegex = new(
-        @".Inputs*((?<values>[^)]*))",
+        @"\.Input\s*\((?<values>[^)]*)\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TargetRegex = new(
-        @".Targets*(s*(?<value>[-+0-9.eE]+)s*)",
+        @"\.Target\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex LearningRateRegex = new(
-        @".LearningRates*(s*(?<value>[-+0-9.eE]+)s*)",
+        @"\.LearningRate\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static NeuralScriptResult Parse(string script)
@@ -32,8 +32,8 @@ public static class NeuralScriptParser
             throw new InvalidOperationException("Script is empty.");
 
         var normalized = Regex.Replace(script, @"//.*?$", string.Empty, RegexOptions.Multiline)
-            .Replace("", " ")
-            .Replace("", " ");
+            .Replace("\r", " ")
+            .Replace("\n", " ");
 
         var networkMatch = NetworkRegex.Match(normalized);
         if (!networkMatch.Success)
