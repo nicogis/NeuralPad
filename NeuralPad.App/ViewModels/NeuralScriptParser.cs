@@ -19,7 +19,7 @@ public static class NeuralScriptParser
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TargetRegex = new(
-        @"\.Target\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
+        @"\.Target\s*\((?<values>[^)]*)\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex LearningRateRegex = new(
@@ -51,8 +51,8 @@ public static class NeuralScriptParser
             int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture),
             Enum.Parse<ActivationKind>(m.Groups["activation"].Value, true))).ToArray();
 
-        if (layerSpecs[^1].Count != 1 || layerSpecs[^1].Activation != ActivationKind.Sigmoid)
-            throw new InvalidOperationException("The final layer must be Dense(1, Sigmoid) for BCE/backprop.");
+        if (layerSpecs[^1].Activation != ActivationKind.Sigmoid)
+            throw new InvalidOperationException("The final layer must use Sigmoid for BCE/backprop.");
 
         var inputMatch = InputRegex.Match(normalized);
         IReadOnlyList<double> inputs;
@@ -74,17 +74,32 @@ public static class NeuralScriptParser
         }
 
         var targetMatch = TargetRegex.Match(normalized);
+        var outputCount = layerSpecs[^1].Count;
+        IReadOnlyList<double> targets;
+        if (targetMatch.Success)
+        {
+            targets = targetMatch.Groups["values"].Value
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(ParseDouble)
+                .ToArray();
+            if (targets.Count != outputCount)
+                throw new InvalidOperationException($"The output layer has {outputCount} neurons, so Target(...) requires {outputCount} values.");
+        }
+        else
+        {
+            targets = Enumerable.Repeat(1.0, outputCount).ToArray();
+        }
+
         var lrMatch = LearningRateRegex.Match(normalized);
-        var target = targetMatch.Success ? ParseDouble(targetMatch.Groups["value"].Value) : 1.0;
         var learningRate = lrMatch.Success ? ParseDouble(lrMatch.Groups["value"].Value) : 0.1;
 
-        if (target is < 0 or > 1)
-            throw new InvalidOperationException("Target must be between 0 and 1.");
+        if (targets.Any(x => x is < 0 or > 1))
+            throw new InvalidOperationException("Every target must be between 0 and 1.");
         if (learningRate < 0)
             throw new InvalidOperationException("LearningRate must be >= 0.");
 
         var network = BuildNetwork(inputCount, layerSpecs);
-        return new NeuralScriptResult(network, inputs, target, learningRate);
+        return new NeuralScriptResult(network, inputs, targets, learningRate);
     }
 
     private static NeuralNetwork BuildNetwork(int inputCount, LayerSpec[] specs)
