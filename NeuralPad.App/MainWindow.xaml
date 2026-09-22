@@ -164,10 +164,30 @@
                             <dxg:GridControl Grid.Row="2" ItemsSource="{Binding SnapshotComparison}">
                                 <dxg:GridControl.Columns>
                                     <dxg:GridColumn FieldName="Parameter" Header="Parameter" Width="*"/>
-                                    <dxg:GridColumn FieldName="FromValue" Header="From" Width="100" DisplayFormat="0.000000"/>
-                                    <dxg:GridColumn FieldName="ToValue" Header="To" Width="100" DisplayFormat="0.000000"/>
-                                    <dxg:GridColumn FieldName="Delta" Header="Δ" Width="100" DisplayFormat="+0.000000;-0.000000;0.000000"/>
-                                    <dxg:GridColumn FieldName="AbsoluteDelta" Header="|Δ|" Width="100" DisplayFormat="0.000000"/>
+
+                                    <dxg:GridColumn FieldName="FromValue" Header="From" Width="100">
+                                        <dxg:GridColumn.EditSettings>
+                                            <dxe:TextEditSettings DisplayFormat="0.000000"/>
+                                        </dxg:GridColumn.EditSettings>
+                                    </dxg:GridColumn>
+
+                                    <dxg:GridColumn FieldName="ToValue" Header="To" Width="100">
+                                        <dxg:GridColumn.EditSettings>
+                                            <dxe:TextEditSettings DisplayFormat="0.000000"/>
+                                        </dxg:GridColumn.EditSettings>
+                                    </dxg:GridColumn>
+
+                                    <dxg:GridColumn FieldName="Delta" Header="Δ" Width="100">
+                                        <dxg:GridColumn.EditSettings>
+                                            <dxe:TextEditSettings DisplayFormat="+0.000000;-0.000000;0.000000"/>
+                                        </dxg:GridColumn.EditSettings>
+                                    </dxg:GridColumn>
+
+                                    <dxg:GridColumn FieldName="AbsoluteDelta" Header="|Δ|" Width="100">
+                                        <dxg:GridColumn.EditSettings>
+                                            <dxe:TextEditSettings DisplayFormat="0.000000"/>
+                                        </dxg:GridColumn.EditSettings>
+                                    </dxg:GridColumn>
                                 </dxg:GridControl.Columns>
                                 <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Row"/></dxg:GridControl.View>
                             </dxg:GridControl>
