@@ -98,14 +98,14 @@
                                 </StackPanel>
                                 <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Breakpoints}" SelectedItem="{Binding SelectedBreakpoint}">
                                     <dxg:GridControl.Columns>
-                                        <dxg:GridColumn FieldName="IsEnabled" Header="On" Width="45"/>
-                                        <dxg:GridColumn FieldName="ConditionText" Header="Condition" Width="2*" ReadOnly="True"/>
-                                        <dxg:GridColumn FieldName="Kind" Header="Type" Width="*"/>
-                                        <dxg:GridColumn FieldName="Expression" Header="Parameter" Width="*"/>
-                                        <dxg:GridColumn FieldName="Threshold" Header="Value" Width="80"/>
+                                        <dxg:GridColumn FieldName="IsEnabled" Header="On" Width="50"/>
+                                        <dxg:GridColumn FieldName="ConditionText" Header="Condition" Width="240" ReadOnly="True"/>
+                                        <dxg:GridColumn FieldName="Kind" Header="Type" Width="150"/>
+                                        <dxg:GridColumn FieldName="Expression" Header="Parameter" Width="180"/>
+                                        <dxg:GridColumn FieldName="Threshold" Header="Value" Width="90"/>
                                         <dxg:GridColumn FieldName="Status" Header="Status" Width="90" ReadOnly="True"/>
                                     </dxg:GridControl.Columns>
-                                    <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Cell"/></dxg:GridControl.View>
+                                    <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="False" NavigationStyle="Cell"/></dxg:GridControl.View>
                                 </dxg:GridControl>
                             </Grid>
                         </Grid>
