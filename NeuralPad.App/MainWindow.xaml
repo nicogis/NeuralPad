@@ -25,10 +25,21 @@
                 <Button Content="◀ Step Backward" Command="{Binding StepBackwardCommand}" Padding="14,7" Margin="0,0,6,0"/>
                 <Button Content="◀◀ Run Backward" Command="{Binding RunBackwardCommand}" Padding="14,7" Margin="0,0,6,0"/>
                 <Button Content="Optimizer Step" Command="{Binding OptimizerStepCommand}" Padding="14,7" Margin="0,0,20,0"/>
-                <TextBlock Text="X1" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <dxe:SpinEdit Width="90" Value="{Binding X1, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
-                <TextBlock Text="X2" VerticalAlignment="Center" Margin="15,0,5,0"/>
-                <dxe:SpinEdit Width="90" Value="{Binding X2, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
+                <ItemsControl ItemsSource="{Binding Inputs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <dxe:SpinEdit Width="82" Value="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Increment="0.05" Mask="n2"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <TextBlock Text="Target" VerticalAlignment="Center" Margin="15,0,5,0"/>
                 <dxe:SpinEdit Width="75" Value="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Increment="1" MinValue="0" MaxValue="1" Mask="n0"/>
                 <TextBlock Text="LR" VerticalAlignment="Center" Margin="15,0,5,0"/>
