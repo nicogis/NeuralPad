@@ -41,7 +41,19 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <TextBlock Text="Target" VerticalAlignment="Center" Margin="15,0,5,0"/>
-                <dxe:SpinEdit Width="75" Value="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Increment="1" MinValue="0" MaxValue="1" Mask="n0"/>
+                <ItemsControl ItemsSource="{Binding Targets}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <dxe:SpinEdit Width="68" Value="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Increment="1" MinValue="0" MaxValue="1" Mask="n0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <TextBlock Text="LR" VerticalAlignment="Center" Margin="15,0,5,0"/>
                 <dxe:SpinEdit Width="75" Value="{Binding LearningRate, UpdateSourceTrigger=PropertyChanged}" Increment="0.01" MinValue="0" Mask="n3"/>
                 <TextBlock Text="Output" VerticalAlignment="Center" Margin="20,0,5,0" FontWeight="SemiBold"/>
