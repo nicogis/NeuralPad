@@ -3,15 +3,15 @@ namespace NeuralPad.Core;
 public sealed class BackwardSession
 {
     private readonly NeuralNetwork _network;
-    private readonly double _target;
+    private readonly double[] _targets;
     private readonly List<BackwardStep> _steps = [];
     private readonly Queue<Func<BackwardStep>> _operations = new();
     private int _sequence;
 
-    internal BackwardSession(NeuralNetwork network, double target)
+    internal BackwardSession(NeuralNetwork network, double[] targets)
     {
         _network = network;
-        _target = target;
+        _targets = targets;
         BuildOperations();
     }
 
@@ -34,44 +34,56 @@ public sealed class BackwardSession
 
     private void BuildOperations()
     {
-        var output = _network.Layers[^1].Neurons.Single();
+        var outputs = _network.Layers[^1].Neurons.ToArray();
+        var output = outputs[0];
         _operations.Enqueue(() =>
         {
-            var yHat = Math.Clamp(output.Activation, 1e-12, 1 - 1e-12);
-            var loss = -(_target * Math.Log(yHat) + (1 - _target) * Math.Log(1 - yHat));
+            var loss = 0.0;
+            for (var i = 0; i < outputs.Length; i++)
+            {
+                var yHat = Math.Clamp(outputs[i].Activation, 1e-12, 1 - 1e-12);
+                var target = _targets[i];
+                loss += -(target * Math.Log(yHat) + (1 - target) * Math.Log(1 - yHat));
+            }
             _network.Loss = loss;
             return New(BackwardStepKind.Loss, "Binary Cross Entropy",
-                $"-[y*ln(y_hat)+(1-y)*ln(1-y_hat)] = {loss:0.######}", loss, output);
+                outputs.Length == 1 ? $"BCE = {loss:0.######}" : $"sum BCE(O1..O{outputs.Length}) = {loss:0.######}", loss, output);
         });
 
-        _operations.Enqueue(() =>
+        for (var outputIndex = 0; outputIndex < outputs.Length; outputIndex++)
         {
-            output.Delta = output.Activation - _target;
-            output.HasGradient = true;
-            return New(BackwardStepKind.OutputDelta, $"{output.Name} delta",
-                $"dL/dz = y_hat - y = {output.Activation:0.######} - {_target:0.######} = {output.Delta:0.######}",
-                output.Delta, output);
-        });
+            var currentOutput = outputs[outputIndex];
+            var currentTarget = _targets[outputIndex];
 
-        foreach (var connection in _network.Connections.Where(c => c.To == output))
-        {
-            var local = connection;
             _operations.Enqueue(() =>
             {
-                local.Gradient = local.From.Activation * output.Delta;
-                local.HasGradient = true;
-                return New(BackwardStepKind.WeightGradient, $"{local} gradient",
-                    $"dL/dw = a_prev * delta = {local.From.Activation:0.######} * {output.Delta:0.######} = {local.Gradient:0.######}",
-                    local.Gradient, output, local);
+                currentOutput.Delta = currentOutput.Activation - currentTarget;
+                currentOutput.HasGradient = true;
+                return New(BackwardStepKind.OutputDelta, $"{currentOutput.Name} delta",
+                    $"dL/dz = y_hat - y = {currentOutput.Activation:0.######} - {currentTarget:0.######} = {currentOutput.Delta:0.######}",
+                    currentOutput.Delta, currentOutput);
+            });
+
+            foreach (var connection in _network.Connections.Where(c => c.To == currentOutput))
+            {
+                var local = connection;
+                _operations.Enqueue(() =>
+                {
+                    local.Gradient = local.From.Activation * currentOutput.Delta;
+                    local.HasGradient = true;
+                    return New(BackwardStepKind.WeightGradient, $"{local} gradient",
+                        $"dL/dw = a_prev * delta = {local.From.Activation:0.######} * {currentOutput.Delta:0.######} = {local.Gradient:0.######}",
+                        local.Gradient, currentOutput, local);
+                });
+            }
+
+            _operations.Enqueue(() =>
+            {
+                currentOutput.BiasGradient = currentOutput.Delta;
+                return New(BackwardStepKind.BiasGradient, $"{currentOutput.Name} bias gradient",
+                    $"dL/db = delta = {currentOutput.BiasGradient:0.######}", currentOutput.BiasGradient, currentOutput);
             });
         }
-
-        _operations.Enqueue(() =>
-        {
-            output.BiasGradient = output.Delta;
-            return New(BackwardStepKind.BiasGradient, $"{output.Name} bias gradient",
-                $"dL/db = delta = {output.BiasGradient:0.######}", output.BiasGradient, output);
-        });
 
         for (var layerIndex = _network.Layers.Count - 2; layerIndex >= 1; layerIndex--)
         {
