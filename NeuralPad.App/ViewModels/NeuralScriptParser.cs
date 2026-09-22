@@ -32,9 +32,8 @@ public static class NeuralScriptParser
             throw new InvalidOperationException("Script is empty.");
 
         var normalized = Regex.Replace(script, @"//.*?$", string.Empty, RegexOptions.Multiline)
-            .Replace("", " ")
-            .Replace("
-", " ");
+            .Replace("", " ")
+            .Replace("", " ");
 
         var networkMatch = NetworkRegex.Match(normalized);
         if (!networkMatch.Success)
