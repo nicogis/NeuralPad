@@ -29,20 +29,30 @@ public sealed class TrainingBreakpoint : INotifyPropertyChanged
     public TrainingBreakpointKind Kind
     {
         get => _kind;
-        set { if (_kind == value) return; _kind = value; OnPropertyChanged(); }
+        set { if (_kind == value) return; _kind = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConditionText)); }
     }
 
     public string Expression
     {
         get => _expression;
-        set { if (_expression == value) return; _expression = value; OnPropertyChanged(); }
+        set { if (_expression == value) return; _expression = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConditionText)); }
     }
 
     public double Threshold
     {
         get => _threshold;
-        set { if (_threshold == value) return; _threshold = value; OnPropertyChanged(); }
+        set { if (_threshold == value) return; _threshold = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConditionText)); }
     }
+
+    public string ConditionText => Kind switch
+    {
+        TrainingBreakpointKind.LossBelow => $"Loss < {Threshold:0.######}",
+        TrainingBreakpointKind.GradientAbove => $"max |gradient| > {Threshold:0.######}",
+        TrainingBreakpointKind.WeightAbove => $"|{(string.IsNullOrWhiteSpace(Expression) ? "W(?,?)" : Expression)}| > {Threshold:0.######}",
+        TrainingBreakpointKind.EpochEquals => $"Epoch = {(int)Threshold}",
+        TrainingBreakpointKind.SampleEquals => $"Sample = {(int)Threshold}",
+        _ => string.Empty
+    };
 
     public string Status
     {
