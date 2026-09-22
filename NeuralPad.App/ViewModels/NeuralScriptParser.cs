@@ -7,23 +7,23 @@ namespace NeuralPad.App.ViewModels;
 public static class NeuralScriptParser
 {
     private static readonly Regex NetworkRegex = new(
-        @"Network\s*\(\s*(?<inputs>\d+)\s*\)",
+        @"Networks*(s*(?<inputs>d+)s*)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex DenseRegex = new(
-        @"\.Dense\s*\(\s*(?<count>\d+)\s*,\s*(?<activation>Linear|ReLU|Sigmoid|Tanh)\s*\)",
+        @".Denses*(s*(?<count>d+)s*,s*(?<activation>Linear|ReLU|Sigmoid|Tanh)s*)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex InputRegex = new(
-        @"\.Input\s*\(\s*(?<x1>[-+0-9.eE]+)\s*,\s*(?<x2>[-+0-9.eE]+)\s*\)",
+        @".Inputs*((?<values>[^)]*))",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TargetRegex = new(
-        @"\.Target\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
+        @".Targets*(s*(?<value>[-+0-9.eE]+)s*)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex LearningRateRegex = new(
-        @"\.LearningRate\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
+        @".LearningRates*(s*(?<value>[-+0-9.eE]+)s*)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static NeuralScriptResult Parse(string script)
@@ -32,16 +32,17 @@ public static class NeuralScriptParser
             throw new InvalidOperationException("Script is empty.");
 
         var normalized = Regex.Replace(script, @"//.*?$", string.Empty, RegexOptions.Multiline)
-            .Replace("\r", " ")
-            .Replace("\n", " ");
+            .Replace("", " ")
+            .Replace("
+", " ");
 
         var networkMatch = NetworkRegex.Match(normalized);
         if (!networkMatch.Success)
-            throw new InvalidOperationException("Missing Network(2).");
+            throw new InvalidOperationException("Missing Network(n).");
 
         var inputCount = int.Parse(networkMatch.Groups["inputs"].Value, CultureInfo.InvariantCulture);
-        if (inputCount != 2)
-            throw new InvalidOperationException("The current debugger supports exactly 2 inputs.");
+        if (inputCount <= 0)
+            throw new InvalidOperationException("Network input count must be greater than zero.");
 
         var denseMatches = DenseRegex.Matches(normalized);
         if (denseMatches.Count == 0)
@@ -55,11 +56,26 @@ public static class NeuralScriptParser
             throw new InvalidOperationException("The final layer must be Dense(1, Sigmoid) for BCE/backprop.");
 
         var inputMatch = InputRegex.Match(normalized);
+        IReadOnlyList<double> inputs;
+        if (inputMatch.Success)
+        {
+            inputs = inputMatch.Groups["values"].Value
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(ParseDouble)
+                .ToArray();
+
+            if (inputs.Count != inputCount)
+                throw new InvalidOperationException($"Network({inputCount}) requires exactly {inputCount} values in Input(...).");
+        }
+        else
+        {
+            inputs = Enumerable.Range(0, inputCount)
+                .Select(i => i switch { 0 => 0.8, 1 => 0.35, _ => 0.0 })
+                .ToArray();
+        }
+
         var targetMatch = TargetRegex.Match(normalized);
         var lrMatch = LearningRateRegex.Match(normalized);
-
-        var x1 = inputMatch.Success ? ParseDouble(inputMatch.Groups["x1"].Value) : 0.8;
-        var x2 = inputMatch.Success ? ParseDouble(inputMatch.Groups["x2"].Value) : 0.35;
         var target = targetMatch.Success ? ParseDouble(targetMatch.Groups["value"].Value) : 1.0;
         var learningRate = lrMatch.Success ? ParseDouble(lrMatch.Groups["value"].Value) : 0.1;
 
@@ -68,14 +84,14 @@ public static class NeuralScriptParser
         if (learningRate < 0)
             throw new InvalidOperationException("LearningRate must be >= 0.");
 
-        var network = BuildNetwork(layerSpecs);
-        return new NeuralScriptResult(network, x1, x2, target, learningRate);
+        var network = BuildNetwork(inputCount, layerSpecs);
+        return new NeuralScriptResult(network, inputs, target, learningRate);
     }
 
-    private static NeuralNetwork BuildNetwork(LayerSpec[] specs)
+    private static NeuralNetwork BuildNetwork(int inputCount, LayerSpec[] specs)
     {
         var network = new NeuralNetwork();
-        var previous = network.AddLayer(2, "X", ActivationKind.Linear);
+        var previous = network.AddLayer(inputCount, "X", ActivationKind.Linear);
         var random = new Random(42);
 
         for (var index = 0; index < specs.Length; index++)
@@ -88,7 +104,6 @@ public static class NeuralScriptParser
             var fanIn = previous.Neurons.Count;
             var scale = Math.Sqrt(2.0 / Math.Max(1, fanIn));
             network.FullyConnect(previous, current, (_, _) => (random.NextDouble() * 2.0 - 1.0) * scale);
-
             previous = current;
         }
 
