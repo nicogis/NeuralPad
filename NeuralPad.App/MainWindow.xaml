@@ -130,15 +130,15 @@
                             </StackPanel>
                             <dxg:GridControl Grid.Row="1" ItemsSource="{Binding Snapshots}" SelectedItem="{Binding SelectedSnapshot}">
                                 <dxg:GridControl.Columns>
-                                    <dxg:GridColumn FieldName="Name" Header="Snapshot" Width="*"/>
-                                    <dxg:GridColumn FieldName="Epoch" Header="Epoch" Width="70"/>
-                                    <dxg:GridColumn FieldName="CreatedAt" Header="Created" Width="150"/>
+                                    <dxg:GridColumn FieldName="Name" Header="Snapshot" Width="180"/>
+                                    <dxg:GridColumn FieldName="Epoch" Header="Epoch" Width="90"/>
+                                    <dxg:GridColumn FieldName="CreatedAt" Header="Created" Width="180"/>
                                 </dxg:GridControl.Columns>
                                 <dxg:GridControl.View><dxg:TableView ShowGroupPanel="False" AutoWidth="True" NavigationStyle="Row"/></dxg:GridControl.View>
                             </dxg:GridControl>
                             <dxg:GridControl Grid.Row="2" ItemsSource="{Binding SnapshotComparison}">
                                 <dxg:GridControl.Columns>
-                                    <dxg:GridColumn FieldName="Parameter" Header="Parameter" Width="*"/>
+                                    <dxg:GridColumn FieldName="Parameter" Header="Parameter" Width="220"/>
 
                                     <dxg:GridColumn FieldName="FromValue" Header="From" Width="100">
                                         <dxg:GridColumn.EditSettings>
