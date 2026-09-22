@@ -40,6 +40,10 @@ public sealed class Neuron : INotifyPropertyChanged
     public double BiasGradient { get; internal set; }
     public bool HasGradient { get; internal set; }
 
+    public double BiasBeforeUpdate { get; internal set; }
+    public double BiasUpdate { get; internal set; }
+    public bool HasOptimizerUpdate { get; internal set; }
+
     internal void ResetState()
     {
         Z = 0;
@@ -48,6 +52,9 @@ public sealed class Neuron : INotifyPropertyChanged
         Delta = 0;
         BiasGradient = 0;
         HasGradient = false;
+        BiasBeforeUpdate = 0;
+        BiasUpdate = 0;
+        HasOptimizerUpdate = false;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
