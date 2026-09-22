@@ -194,6 +194,30 @@
                         </Grid>
                     </dxdo:LayoutPanel>
 
+                    <dxdo:LayoutPanel Caption="Script">
+                        <Grid Margin="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <Button Content="▶ Apply Script" Command="{Binding ApplyScriptCommand}" Padding="12,5" Margin="0,0,10,0"/>
+                                <TextBlock Text="C#-like NeuralPad DSL" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <TextBox Grid.Row="1"
+                                     Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True"
+                                     AcceptsTab="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas"
+                                     FontSize="13"
+                                     TextWrapping="NoWrap"/>
+                            <TextBlock Grid.Row="2" Text="{Binding ScriptStatus}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        </Grid>
+                    </dxdo:LayoutPanel>
+
                     <dxdo:LayoutPanel Caption="Forward Trace">
                         <ListBox ItemsSource="{Binding Trace}" SelectedItem="{Binding CurrentStep, Mode=OneWay}">
                             <ListBox.ItemTemplate>
