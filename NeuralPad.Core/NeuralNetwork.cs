@@ -35,18 +35,20 @@ public sealed class NeuralNetwork
         return new ForwardSession(this, inputs.ToArray());
     }
 
-    public BackwardSession BeginBackward(double target)
+    public BackwardSession BeginBackward(double target) => BeginBackward([target]);
+
+    public BackwardSession BeginBackward(params double[] targets)
     {
-        if (Layers[^1].Neurons.Count != 1)
-            throw new InvalidOperationException("This PoC backward debugger currently supports a single output.");
-        if (!Layers[^1].Neurons[0].HasValue)
+        var outputs = Layers[^1].Neurons;
+        if (targets.Length != outputs.Count)
+            throw new ArgumentException("Target count must match the output neuron count.", nameof(targets));
+        if (outputs.Any(x => !x.HasValue))
             throw new InvalidOperationException("Run the forward pass before backpropagation.");
-        if (target is < 0 or > 1)
-            throw new ArgumentOutOfRangeException(nameof(target), "BCE target must be between 0 and 1.");
+        if (targets.Any(x => x is < 0 or > 1))
+            throw new ArgumentOutOfRangeException(nameof(targets), "BCE targets must be between 0 and 1.");
 
         ResetBackwardState();
-
-        return new BackwardSession(this, target);
+        return new BackwardSession(this, targets.ToArray());
     }
 
     public void ApplyGradients(double learningRate)
