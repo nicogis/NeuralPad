@@ -34,12 +34,19 @@ public sealed class Connection : INotifyPropertyChanged
     public double Gradient { get; internal set; }
     public bool HasGradient { get; internal set; }
 
+    public double WeightBeforeUpdate { get; internal set; }
+    public double WeightUpdate { get; internal set; }
+    public bool HasOptimizerUpdate { get; internal set; }
+
     internal void ResetState()
     {
         Contribution = 0;
         HasContribution = false;
         Gradient = 0;
         HasGradient = false;
+        WeightBeforeUpdate = 0;
+        WeightUpdate = 0;
+        HasOptimizerUpdate = false;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
