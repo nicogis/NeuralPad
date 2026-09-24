@@ -8,6 +8,7 @@
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:dxc="http://schemas.devexpress.com/winfx/2008/xaml/charts"
     xmlns:local="clr-namespace:NeuralPad.App.Controls"
+    xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
     Title="NeuralPad" Width="1500" Height="900" WindowStartupLocation="CenterScreen">
 
     <Grid Margin="8">
@@ -227,16 +228,23 @@
                                 <Button Content="▶ Run C#" Command="{Binding ApplyScriptCommand}" Padding="12,5" Margin="0,0,10,0"/>
                                 <TextBlock Text="C# Script · Roslyn" VerticalAlignment="Center" FontWeight="SemiBold"/>
                             </StackPanel>
-                            <TextBox Grid.Row="1"
-                                     Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}"
-                                     AcceptsReturn="True"
-                                     AcceptsTab="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto"
-                                     FontFamily="Consolas"
-                                     FontSize="13"
-                                     TextWrapping="NoWrap"/>
-                            <TextBlock Grid.Row="2" Text="{Binding ScriptStatus}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            <avalonedit:TextEditor x:Name="CodeEditor"
+                                                   Grid.Row="1"
+                                                   ShowLineNumbers="True"
+                                                   SyntaxHighlighting="C#"
+                                                   FontFamily="Consolas"
+                                                   FontSize="13"
+                                                   HorizontalScrollBarVisibility="Auto"
+                                                   VerticalScrollBarVisibility="Auto"/>
+                            <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding ScriptStatus}" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="ScriptDiagnosticsText"
+                                           Margin="0,3,0,0"
+                                           Opacity="0.75"
+                                           FontFamily="Consolas"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
                         </Grid>
                     </dxdo:LayoutPanel>
 
