@@ -3,6 +3,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using NeuralPad.Core;
+using NeuralPad.App.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 
 namespace NeuralPad.App.ViewModels;
 
@@ -23,12 +25,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private int _snapshotNumber;
     private string _optimizerStatus = "Optimizer not executed";
     private string _scriptText = """
+var hidden = 3;
+
 var net = Neural.Network(2)
-    .Dense(3, ReLU)
+    .Dense(hidden, ReLU)
     .Dense(1, Sigmoid)
     .Input(0.80, 0.35)
     .Target(1)
     .LearningRate(0.10);
+
+for (var i = 0; i < 4; i++)
+{
+    var x1 = i >= 2 ? 1.0 : 0.0;
+    var x2 = i % 2 == 1 ? 1.0 : 0.0;
+    net.Sample([x1, x2], [(x1 == x2) ? 0.0 : 1.0]);
+}
+
+Dump(net);
 """;
     private string _scriptStatus = "Ready";
 
@@ -79,7 +92,7 @@ var net = Neural.Network(2)
         RemoveSnapshotCommand = new RelayCommand(RemoveSelectedSnapshot, () => SelectedSnapshot is not null);
         AddWatchCommand = new RelayCommand(AddWatch);
         RemoveWatchCommand = new RelayCommand(RemoveSelectedWatch, () => SelectedWatch is not null);
-        ApplyScriptCommand = new RelayCommand(ApplyScript);
+        ApplyScriptCommand = new RelayCommand(async () => await ApplyScriptAsync());
         Reset();
         EvaluateDataset();
     }
@@ -210,68 +223,77 @@ var net = Neural.Network(2)
     public ICommand ApplyScriptCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private void ApplyScript()
+    private async Task ApplyScriptAsync()
     {
         try
         {
-            var result = NeuralScriptParser.Parse(ScriptText);
-
-            foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
-                neuron.PropertyChanged -= ParameterChanged;
-            foreach (var connection in Network.Connections)
-                connection.PropertyChanged -= ParameterChanged;
-
-            Network = result.Network;
-            _watchEvaluator = new WatchEvaluator(Network);
-            _breakpointEvaluator = new BreakpointEvaluator(Network);
-
-            foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
-                neuron.PropertyChanged += ParameterChanged;
-            foreach (var connection in Network.Connections)
-                connection.PropertyChanged += ParameterChanged;
-
-            SetInputs(result.Inputs);
-            SetTargets(result.Targets);
-            _learningRate = result.LearningRate;
-
-            TrainingSamples.Clear();
-            if (result.Samples.Count > 0)
-            {
-                foreach (var sample in result.Samples)
-                    TrainingSamples.Add(sample);
-            }
-            else if (result.Inputs.Count == 2 && result.Targets.Count == 1)
-            {
-                TrainingSamples.Add(new TrainingSample(0, 0, 0));
-                TrainingSamples.Add(new TrainingSample(0, 1, 1));
-                TrainingSamples.Add(new TrainingSample(1, 0, 1));
-                TrainingSamples.Add(new TrainingSample(1, 1, 0));
-            }
-            SelectedTrainingSample = TrainingSamples.FirstOrDefault();
-            SelectedObject = null;
-            _session = null;
-            _backwardSession = null;
-            CurrentStep = null;
-            CurrentBackwardStep = null;
-            BackwardTrace.Clear();
-            TrainingHistory.Clear();
-            Snapshots.Clear();
-            SnapshotComparison.Clear();
-            Epoch = 0;
-            _sampleIndex = 0;
-
-            OnPropertyChanged(nameof(Network));
-            OnPropertyChanged(nameof(LearningRate));
-            OnPropertyChanged(nameof(Trace));
-            OnPropertyChanged(nameof(TrainingStatus));
-
-            RefreshComputed();
-            ScriptStatus = $"Applied: {Network.Layers.Count} layers, {Network.Connections.Count} connections";
+            ScriptStatus = "Compiling C#...";
+            var result = await RoslynScriptRunner.RunAsync(ScriptText);
+            ApplyScriptResult(result);
+            ScriptStatus = $"C# compiled and applied: {Network.Layers.Count} layers, {Network.Connections.Count} connections";
+        }
+        catch (CompilationErrorException ex)
+        {
+            ScriptStatus = string.Join(Environment.NewLine, ex.Diagnostics.Select(x => x.ToString()));
         }
         catch (Exception ex)
         {
             ScriptStatus = $"Error: {ex.Message}";
         }
+    }
+
+    private void ApplyScriptResult(NeuralScriptResult result)
+    {
+        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
+            neuron.PropertyChanged -= ParameterChanged;
+        foreach (var connection in Network.Connections)
+            connection.PropertyChanged -= ParameterChanged;
+
+        Network = result.Network;
+        _watchEvaluator = new WatchEvaluator(Network);
+        _breakpointEvaluator = new BreakpointEvaluator(Network);
+
+        foreach (var neuron in Network.Layers.SelectMany(x => x.Neurons))
+            neuron.PropertyChanged += ParameterChanged;
+        foreach (var connection in Network.Connections)
+            connection.PropertyChanged += ParameterChanged;
+
+        SetInputs(result.Inputs);
+        SetTargets(result.Targets);
+        _learningRate = result.LearningRate;
+
+        TrainingSamples.Clear();
+        if (result.Samples.Count > 0)
+        {
+            foreach (var sample in result.Samples)
+                TrainingSamples.Add(sample);
+        }
+        else if (result.Inputs.Count == 2 && result.Targets.Count == 1)
+        {
+            TrainingSamples.Add(new TrainingSample(0, 0, 0));
+            TrainingSamples.Add(new TrainingSample(0, 1, 1));
+            TrainingSamples.Add(new TrainingSample(1, 0, 1));
+            TrainingSamples.Add(new TrainingSample(1, 1, 0));
+        }
+
+        SelectedTrainingSample = TrainingSamples.FirstOrDefault();
+        SelectedObject = null;
+        _session = null;
+        _backwardSession = null;
+        CurrentStep = null;
+        CurrentBackwardStep = null;
+        BackwardTrace.Clear();
+        TrainingHistory.Clear();
+        Snapshots.Clear();
+        SnapshotComparison.Clear();
+        Epoch = 0;
+        _sampleIndex = 0;
+
+        OnPropertyChanged(nameof(Network));
+        OnPropertyChanged(nameof(LearningRate));
+        OnPropertyChanged(nameof(Trace));
+        OnPropertyChanged(nameof(TrainingStatus));
+        RefreshComputed();
     }
 
     private void SetInputs(IEnumerable<double> values)
