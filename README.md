@@ -10,6 +10,10 @@ Instead of treating a network as a black box, NeuralPad exposes forward propagat
 
 > NeuralPad is currently an experimental/educational project, not a production machine-learning framework.
 
+## NeuralPad in action
+
+![NeuralPad visual neural network debugger](docs/neuralpad-ui.png)
+
 ## Current features
 
 - .NET 10 / WPF
