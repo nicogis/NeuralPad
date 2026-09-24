@@ -6,4 +6,5 @@ public sealed record NeuralScriptResult(
     NeuralNetwork Network,
     IReadOnlyList<double> Inputs,
     IReadOnlyList<double> Targets,
-    double LearningRate);
+    double LearningRate,
+    IReadOnlyList<TrainingSample> Samples);
