@@ -1,53 +1,135 @@
 # NeuralPad
 
-POC di debugger visuale per reti neurali, ispirato alla filosofia di LINQPad.
+NeuralPad is an experimental visual debugger and learning environment for neural networks, inspired by the interactive workflow of LINQPad.
 
-## Prima milestone
+The goal is to make the mathematics and runtime state of a small neural network directly inspectable:
 
-- .NET 10
-- DevExpress WPF 26.1
-- rete demo 2 -> 3 -> 1
-- Dense fully-connected
-- ReLU sul layer hidden
-- Sigmoid sull'output
-- forward pass reale
-- trace matematica step-by-step
-- `ForwardSession` incrementale: ogni Step esegue realmente una sola operazione
-- stato non eseguito distinto dallo zero numerico (`—` nel canvas)
-- visualizzazione dinamica di neuroni, pesi e attivazioni
-- inspector DevExpress del neurone/collegamento corrente
-- selezione diretta di neuroni e connessioni dal grafo
-- editing live di Weight e Bias con invalidazione della sessione corrente
-- Watch Window live con espressioni come `H1.Activation`, `O1.Z`, `H1.Bias`, `W(H1,O1)`
-- modifica live degli input X1/X2
-- backward debugger con BCE, delta, gradienti e optimizer step separato
-- visualizzazione backward sullo stesso grafo computazionale
-- Training Mode XOR: Train Sample, Train Epoch, prediction/loss per campione e storico loss
+**C# → mathematics → graph**
 
-## Progetti
+Instead of treating a network as a black box, NeuralPad exposes forward propagation, backpropagation, gradients, optimizer updates, weights, biases and intermediate activations step by step.
 
-- `NeuralPad.Core`: motore indipendente dalla UI
-- `NeuralPad.App`: shell DevExpress WPF e visualizzazione
+> NeuralPad is currently an experimental/educational project, not a production machine-learning framework.
 
-## DevExpress
+## Current features
 
-Il progetto usa PackageReference floating `26.1.*` per:
+- .NET 10 / WPF
+- UI built with DevExpress WPF
+- UI-independent neural-network core
+- dynamically configurable dense networks
+- ReLU, Sigmoid, Tanh and Linear activations
+- real incremental forward execution
+- real incremental backward propagation
+- Binary Cross Entropy for Sigmoid outputs
+- multiple inputs and multiple outputs
+- visual graph of neurons and weighted connections
+- connection contribution inspection
+- neuron inspection for bias, weighted sum, activation and gradients
+- editable weights and biases
+- Watch window, for example:
+  - `H1.Activation`
+  - `O1.Z`
+  - `H1.Bias`
+  - `W(H1,O1)`
+- training datasets with arbitrary input/output vectors
+- Train Sample / Train Epoch
+- loss history
+- training breakpoints
+- parameter snapshots and comparisons
+- separate Forward / Backward / Optimizer phases
+- C# scripting through Roslyn
+- AvalonEdit-based C# editor
+- syntax highlighting
+- first IntelliSense/completion support
+- live Roslyn diagnostics
 
-- DevExpress.Wpf.Core
-- DevExpress.Wpf.Docking
-- DevExpress.Wpf.PropertyGrid
-- DevExpress.Wpf.Editors
-- DevExpress.Wpf.Grid
-- DevExpress.Wpf.Charts
+## Architecture
 
-Configurare il feed NuGet DevExpress associato alla propria licenza prima del restore.
+The solution is intentionally split between the computation engine and the UI:
 
-## Esecuzione
+- `NeuralPad.Core` — deterministic neural-network engine with no WPF dependency.
+- `NeuralPad.App` — WPF debugger, visualization, scripting and training UI.
 
-Aprire `NeuralPad.slnx` con Visual Studio e avviare `NeuralPad.App`.
+A core design principle is that a debugger step corresponds to a real mathematical operation rather than to an animation.
 
-## Prossime milestone
+For example, a forward pass is decomposed into operations such as:
 
-1. Breakpoint didattici su loss, gradienti e pesi.
-2. Snapshot/compare dei parametri tra epoche.
-3. Piccolo editor C# / DSL in stile NeuralPad script.
+```text
+input
+→ weighted contribution
+→ weighted sum
+→ bias
+→ activation
+```
+
+Backpropagation is similarly exposed as an incremental process.
+
+## C# scripting
+
+NeuralPad can compile and execute C# scripts through Roslyn.
+
+Example:
+
+```csharp
+var hidden = 3;
+
+var net = Neural.Network(2)
+    .Dense(hidden, ReLU)
+    .Dense(1, Sigmoid)
+    .Input(0.80, 0.35)
+    .Target(1)
+    .LearningRate(0.10);
+
+for (var i = 0; i < 4; i++)
+{
+    var x1 = i >= 2 ? 1.0 : 0.0;
+    var x2 = i % 2 == 1 ? 1.0 : 0.0;
+
+    net.Sample(
+        [x1, x2],
+        [(x1 == x2) ? 0.0 : 1.0]);
+}
+
+Dump(net);
+```
+
+`Dump(net)` sends the scripted network to the NeuralPad debugger, in a workflow deliberately inspired by LINQPad.
+
+## Requirements
+
+- Windows
+- Visual Studio with .NET 10 support
+- .NET 10 SDK
+- a valid DevExpress WPF license and access to the DevExpress NuGet feed
+
+Open `NeuralPad.slnx` and run `NeuralPad.App`.
+
+## Dependencies and licensing
+
+NeuralPad's own source code is released under the MIT License.
+
+Third-party dependencies retain their respective licenses:
+
+- **DevExpress WPF 26.1** — commercial/proprietary software. NeuralPad does not include DevExpress binaries, source code, license keys or NuGet-feed credentials. A valid DevExpress license is required to restore and use the DevExpress packages according to the DevExpress EULA.
+- **Microsoft.CodeAnalysis.CSharp.Scripting (Roslyn)** — MIT licensed.
+- **AvalonEdit** — MIT licensed.
+
+The MIT license of NeuralPad does not relicense DevExpress or any other third-party component.
+
+## Project status
+
+NeuralPad is a work in progress. APIs, scripting syntax, debugger behavior and UI may change while the architecture evolves.
+
+Some planned areas include:
+
+- richer Roslyn IntelliSense and parameter information
+- inline diagnostics and error adorners
+- Softmax + categorical cross entropy
+- additional optimizers
+- contribution tree visualization
+- improved breakpoint state preservation
+- richer datasets and training workflows
+- comparison of multiple network runs
+
+## License
+
+MIT. See [LICENSE](LICENSE).
