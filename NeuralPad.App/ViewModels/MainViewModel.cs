@@ -149,7 +149,9 @@ var net = Neural.Network(2)
     }
 
     public int Epoch { get => _epoch; private set => SetField(ref _epoch, value); }
-    public string TrainingStatus => $"Epoch {Epoch} | next sample {_sampleIndex + 1}/{TrainingSamples.Count}";
+    public string TrainingStatus => TrainingSamples.Count == 0
+        ? $"Epoch {Epoch} | no training dataset"
+        : $"Epoch {Epoch} | next sample {_sampleIndex + 1}/{TrainingSamples.Count}";
     public double LearningRate { get => _learningRate; set => SetField(ref _learningRate, Math.Max(0, value)); }
 
     public ForwardStep? CurrentStep { get => _currentStep; private set => SetField(ref _currentStep, value); }
@@ -231,6 +233,21 @@ var net = Neural.Network(2)
             SetInputs(result.Inputs);
             SetTargets(result.Targets);
             _learningRate = result.LearningRate;
+
+            TrainingSamples.Clear();
+            if (result.Samples.Count > 0)
+            {
+                foreach (var sample in result.Samples)
+                    TrainingSamples.Add(sample);
+            }
+            else if (result.Inputs.Count == 2 && result.Targets.Count == 1)
+            {
+                TrainingSamples.Add(new TrainingSample(0, 0, 0));
+                TrainingSamples.Add(new TrainingSample(0, 1, 1));
+                TrainingSamples.Add(new TrainingSample(1, 0, 1));
+                TrainingSamples.Add(new TrainingSample(1, 1, 0));
+            }
+            SelectedTrainingSample = TrainingSamples.FirstOrDefault();
             SelectedObject = null;
             _session = null;
             _backwardSession = null;
@@ -499,12 +516,9 @@ var net = Neural.Network(2)
 
     private void TrainOne(TrainingSample sample)
     {
-        if (Network.Layers[0].Neurons.Count != 2 || Network.Layers[^1].Neurons.Count != 1)
-            throw new InvalidOperationException("XOR training is available only for networks with 2 inputs.");
-
-        var forward = Network.BeginForward(sample.X1, sample.X2);
+        var forward = Network.BeginForward(sample.Inputs.ToArray());
         forward.RunToEnd();
-        var backward = Network.BeginBackward(sample.Target);
+        var backward = Network.BeginBackward(sample.Targets.ToArray());
         backward.RunToEnd();
         ApplyGradientsWithoutInvalidation();
     }
@@ -524,32 +538,24 @@ var net = Neural.Network(2)
 
     private void EvaluateDataset()
     {
-        if (Network.Layers[0].Neurons.Count != 2 || Network.Layers[^1].Neurons.Count != 1)
-        {
-            foreach (var sample in TrainingSamples)
-            {
-                sample.Prediction = null;
-                sample.Loss = null;
-            }
-            Network.ResetExecutionState();
-            _session = null;
-            _backwardSession = null;
-            CurrentStep = null;
-            CurrentBackwardStep = null;
-            BackwardTrace.Clear();
-            RefreshComputed();
-            return;
-        }
-
         foreach (var sample in TrainingSamples)
         {
-            var forward = Network.BeginForward(sample.X1, sample.X2);
+            var forward = Network.BeginForward(sample.Inputs.ToArray());
             forward.RunToEnd();
-            var prediction = Network.Layers[^1].Neurons[0].Activation;
-            var p = Math.Clamp(prediction, 1e-12, 1 - 1e-12);
-            sample.Prediction = prediction;
-            sample.Loss = -(sample.Target * Math.Log(p) + (1 - sample.Target) * Math.Log(1 - p));
+
+            var predictions = Network.Layers[^1].Neurons.Select(x => x.Activation).ToArray();
+            sample.Prediction = predictions;
+
+            var loss = 0.0;
+            for (var i = 0; i < predictions.Length; i++)
+            {
+                var p = Math.Clamp(predictions[i], 1e-12, 1 - 1e-12);
+                var target = sample.Targets[i];
+                loss += -(target * Math.Log(p) + (1 - target) * Math.Log(1 - p));
+            }
+            sample.Loss = loss;
         }
+
         Network.ResetExecutionState();
         _session = null;
         _backwardSession = null;
@@ -561,6 +567,7 @@ var net = Neural.Network(2)
 
     private void RecordEpochLoss()
     {
+        if (TrainingSamples.Count == 0) return;
         var average = TrainingSamples.Average(s => s.Loss ?? 0);
         TrainingHistory.Add(new TrainingPoint(Epoch, average));
     }
@@ -572,11 +579,14 @@ var net = Neural.Network(2)
 
     private void LoadSampleIntoDebugger(TrainingSample sample)
     {
-        if (Inputs.Count != 2) return;
-        Inputs[0].Value = sample.X1;
-        Inputs[1].Value = sample.X2;
-        if (Targets.Count == 1)
-            Targets[0].Value = sample.Target;
+        if (Inputs.Count != sample.Inputs.Count || Targets.Count != sample.Targets.Count)
+            return;
+
+        for (var i = 0; i < Inputs.Count; i++)
+            Inputs[i].Value = sample.Inputs[i];
+        for (var i = 0; i < Targets.Count; i++)
+            Targets[i].Value = sample.Targets[i];
+
         ResetExecution(true);
     }
 
