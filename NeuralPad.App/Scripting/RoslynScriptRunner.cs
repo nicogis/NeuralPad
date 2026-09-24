@@ -11,14 +11,7 @@ public static class RoslynScriptRunner
         ScriptNetwork? dumped = null;
         var globals = new NeuralScriptGlobals(network => dumped = network);
 
-        var options = ScriptOptions.Default
-            .AddReferences(typeof(RoslynScriptRunner).Assembly, typeof(NeuralPad.Core.NeuralNetwork).Assembly)
-            .AddImports(
-                "System",
-                "System.Linq",
-                "System.Collections.Generic",
-                "NeuralPad.Core",
-                "NeuralPad.App.Scripting");
+        var options = NeuralEditorLanguageService.CreateScriptOptions();
 
         await CSharpScript.RunAsync(code, options, globals, typeof(NeuralScriptGlobals));
 
