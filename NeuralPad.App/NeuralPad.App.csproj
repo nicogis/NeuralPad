@@ -13,5 +13,6 @@
     <PackageReference Include="DevExpress.Wpf.PropertyGrid" Version="26.1.*" />
     <PackageReference Include="DevExpress.Wpf.Grid" Version="26.1.*" />
     <PackageReference Include="DevExpress.Wpf.Charts" Version="26.1.*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
   </ItemGroup>
 </Project>
