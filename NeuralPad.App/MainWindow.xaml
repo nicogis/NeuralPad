@@ -224,8 +224,8 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                <Button Content="▶ Apply Script" Command="{Binding ApplyScriptCommand}" Padding="12,5" Margin="0,0,10,0"/>
-                                <TextBlock Text="C#-like NeuralPad DSL" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Button Content="▶ Run C#" Command="{Binding ApplyScriptCommand}" Padding="12,5" Margin="0,0,10,0"/>
+                                <TextBlock Text="C# Script · Roslyn" VerticalAlignment="Center" FontWeight="SemiBold"/>
                             </StackPanel>
                             <TextBox Grid.Row="1"
                                      Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}"
