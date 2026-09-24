@@ -40,3 +40,13 @@ Thumbs.db
 .env
 .env.*
 *.local
+
+# Secrets / certificates
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+secrets.json
+appsettings.*.local.json
