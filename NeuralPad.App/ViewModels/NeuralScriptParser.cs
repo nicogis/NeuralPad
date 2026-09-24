@@ -22,6 +22,10 @@ public static class NeuralScriptParser
         @"\.Target\s*\((?<values>[^)]*)\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex SampleRegex = new(
+        @"\.Sample\s*\(\s*\[(?<inputs>[^\]]*)\]\s*,\s*\[(?<targets>[^\]]*)\]\s*\)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly Regex LearningRateRegex = new(
         @"\.LearningRate\s*\(\s*(?<value>[-+0-9.eE]+)\s*\)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -98,8 +102,25 @@ public static class NeuralScriptParser
         if (learningRate < 0)
             throw new InvalidOperationException("LearningRate must be >= 0.");
 
+        var samples = SampleRegex.Matches(normalized)
+            .Select(match =>
+            {
+                var sampleInputs = ParseValues(match.Groups["inputs"].Value);
+                var sampleTargets = ParseValues(match.Groups["targets"].Value);
+
+                if (sampleInputs.Length != inputCount)
+                    throw new InvalidOperationException($"Each Sample requires {inputCount} input values.");
+                if (sampleTargets.Length != outputCount)
+                    throw new InvalidOperationException($"Each Sample requires {outputCount} target values.");
+                if (sampleTargets.Any(x => x is < 0 or > 1))
+                    throw new InvalidOperationException("Every sample target must be between 0 and 1.");
+
+                return new TrainingSample(sampleInputs, sampleTargets);
+            })
+            .ToArray();
+
         var network = BuildNetwork(inputCount, layerSpecs);
-        return new NeuralScriptResult(network, inputs, targets, learningRate);
+        return new NeuralScriptResult(network, inputs, targets, learningRate, samples);
     }
 
     private static NeuralNetwork BuildNetwork(int inputCount, LayerSpec[] specs)
@@ -134,6 +155,11 @@ public static class NeuralScriptParser
     };
 
     private sealed record LayerSpec(int Count, ActivationKind Activation);
+
+    private static double[] ParseValues(string value) =>
+        value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(ParseDouble)
+            .ToArray();
 
     private static double ParseDouble(string value) =>
         double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
