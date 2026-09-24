@@ -93,9 +93,8 @@
                             </StackPanel>
                             <dxg:GridControl Grid.Row="1" ItemsSource="{Binding TrainingSamples}" SelectedItem="{Binding SelectedTrainingSample}">
                                 <dxg:GridControl.Columns>
-                                    <dxg:GridColumn FieldName="X1" Header="X1" ReadOnly="True"/>
-                                    <dxg:GridColumn FieldName="X2" Header="X2" ReadOnly="True"/>
-                                    <dxg:GridColumn FieldName="Target" Header="Target" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="InputsText" Header="Inputs" Width="180" ReadOnly="True"/>
+                                    <dxg:GridColumn FieldName="TargetsText" Header="Targets" Width="140" ReadOnly="True"/>
                                     <dxg:GridColumn FieldName="PredictionText" Header="Prediction" ReadOnly="True"/>
                                     <dxg:GridColumn FieldName="LossText" Header="Loss" ReadOnly="True"/>
                                 </dxg:GridControl.Columns>
@@ -105,7 +104,7 @@
                             </dxg:GridControl>
                             <dxc:ChartControl Grid.Row="2" DataSource="{Binding TrainingHistory}">
                                 <dxc:XYDiagram2D>
-                                    <dxc:LineSeries2D DisplayName="Average BCE"
+                                    <dxc:LineSeries2D DisplayName="Average BCE loss"
                                                       ArgumentDataMember="Epoch"
                                                       ValueDataMember="Loss"
                                                       MarkerVisible="True"/>
